@@ -63,4 +63,4 @@ db.sqlite3
 db.sqlite3-journal
 
 # Benchmark reports
-tests/perf_report*.md
+benchmarks/perf_report*.md
