@@ -27,13 +27,15 @@ def main():
 @click.option("--port", "-p", type=int, default=2505, help="Port to run the server on (default: 2505)")
 @click.option("--host", "-h", type=str, default="127.0.0.1", help="Host address to run the server on (default: 127.0.0.1)")
 @click.option("--max-kv-size", type=int, default=4096, help="Pre-allocated KV cache size (default: 4096)")
-def serve(model: str, port: int, host: str, max_kv_size: int):
+@click.option("--reasoning/--no-reasoning", default=False, help="Toggle whether the server outputs <think> blocks by default (default: False)")
+def serve(model: str, port: int, host: str, max_kv_size: int, reasoning: bool):
     """Starts the FastAPI OpenAI-compatible server and Web Playground."""
     logger.info(f"Starting TPM-MLX REST server on http://{host}:{port}/")
     
     # Store settings in environment variables for server startup loading
     os.environ["TPM_DEFAULT_MODEL"] = model
     os.environ["TPM_MAX_KV_SIZE"] = str(max_kv_size)
+    os.environ["TPM_DEFAULT_REASONING"] = str(reasoning)
     
     # Run Uvicorn ASGI server
     uvicorn.run("tpm_mlx.server:app", host=host, port=port, reload=False)

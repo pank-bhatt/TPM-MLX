@@ -8,6 +8,7 @@ import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse, HTMLResponse
@@ -17,6 +18,9 @@ from tpm_mlx.engine import MLXEngine
 from tpm_mlx.utils import get_logger, get_cached_models
 
 logger = get_logger("server")
+
+# MLX requires GPU stream affinity. We use a dedicated thread executor for all MLX operations.
+mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx_thread")
 
 # Global engine instance and currently loaded model name
 engine: Optional[MLXEngine] = None
@@ -54,7 +58,7 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: int = Field(default=4096, ge=1)
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     stream: bool = False
-    reasoning: bool = Field(default=True, description="Toggles outputting reasoning <think> blocks")
+    reasoning: Optional[bool] = Field(default=None, description="Toggles outputting reasoning <think> blocks")
 
 
 class LoadModelRequest(BaseModel):
@@ -75,7 +79,7 @@ async def _load_engine(model_id: str, max_kv_size: int):
             return MLXEngine(model_path_or_id=model_id, max_kv_size=max_kv_size)
             
         loop = asyncio.get_running_loop()
-        new_engine = await loop.run_in_executor(None, init_engine)
+        new_engine = await loop.run_in_executor(mlx_executor, init_engine)
         
         engine = new_engine
         loaded_model_id = model_id
@@ -180,6 +184,12 @@ async def chat_completions(req: ChatCompletionRequest):
             detail="No model is loaded. Please load a model using /v1/load_model first."
         )
         
+    # Resolve reasoning flag
+    if req.reasoning is not None:
+        show_reasoning = req.reasoning
+    else:
+        show_reasoning = os.environ.get("TPM_DEFAULT_REASONING", "False").lower() == "true"
+        
     # Standard OpenAI Chat template format mapping
     formatted_messages = [{"role": m.role, "content": m.content} for m in req.messages]
     
@@ -212,7 +222,7 @@ async def chat_completions(req: ChatCompletionRequest):
                         prompt=prompt,
                         max_tokens=req.max_tokens,
                         temperature=req.temperature,
-                        show_reasoning=req.reasoning
+                        show_reasoning=show_reasoning
                     )
                 )
                 
@@ -227,7 +237,7 @@ async def chat_completions(req: ChatCompletionRequest):
                         prompt=prompt,
                         max_tokens=req.max_tokens,
                         temperature=req.temperature,
-                        show_reasoning=req.reasoning
+                        show_reasoning=show_reasoning
                     ):
                         # Use run_coroutine_threadsafe to push to async queue
                         asyncio.run_coroutine_threadsafe(queue.put(response), loop).result()
@@ -237,7 +247,7 @@ async def chat_completions(req: ChatCompletionRequest):
                     asyncio.run_coroutine_threadsafe(queue.put(ex), loop).result()
             
             # Start generator in executor thread
-            gen_task = loop.run_in_executor(None, producer)
+            gen_task = loop.run_in_executor(mlx_executor, producer)
             
             # Read from async queue
             prompt_tokens_count = 0
@@ -307,12 +317,12 @@ async def chat_completions(req: ChatCompletionRequest):
                 prompt=prompt,
                 max_tokens=req.max_tokens,
                 temperature=req.temperature,
-                show_reasoning=req.reasoning
+                show_reasoning=show_reasoning
             ):
                 responses.append(response)
             return responses
             
-        responses = await loop.run_in_executor(None, consume_generator)
+        responses = await loop.run_in_executor(mlx_executor, consume_generator)
         if not responses:
             raise HTTPException(status_code=500, detail="Model generated zero responses")
             
