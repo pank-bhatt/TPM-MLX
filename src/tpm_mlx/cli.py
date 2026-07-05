@@ -108,10 +108,10 @@ def chat(model: str, temp: float, max_tokens: int, max_kv_size: int, reasoning: 
                 show_reasoning=reasoning
             ):
                 last_response = response
-                buffer += response.text
                 full_assistant_text += response.text
                 
                 if reasoning:
+                    buffer += response.text
                     if not inside_thought:
                         # Look for any start tag
                         found_tag = None
