@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPM-MLX Playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0d19;
+            --sidebar-bg: rgba(18, 22, 41, 0.7);
+            --card-bg: rgba(25, 30, 56, 0.45);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary-accent: #6366f1;
+            --primary-accent-glow: rgba(99, 102, 241, 0.35);
+            --secondary-accent: #10b981;
+            --thought-bg: rgba(99, 102, 241, 0.06);
+            --thought-border: rgba(99, 102, 241, 0.25);
+            --sidebar-width: 320px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
+        }
+
+        /* Sidebar Container */
+        .sidebar {
+            width: var(--sidebar-width);
+            flex-shrink: 0;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 36px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary-accent), var(--secondary-accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            color: white;
+            box-shadow: 0 0 15px var(--primary-accent-glow);
+        }
+
+        .logo-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, #d1d5db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #d1d5db;
+        }
+
+        select, input[type="range"], input[type="number"] {
+            width: 100%;
+            background: rgba(31, 41, 55, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        select:focus, input[type="number"]:focus {
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 2px var(--primary-accent-glow);
+        }
+
+        .range-value {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Toggle Button styling */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-container:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 42px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #374151;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-accent);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .load-btn {
+            background: linear-gradient(135deg, var(--primary-accent), #4f46e5);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+            margin-top: 8px;
+        }
+
+        .load-btn:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .load-btn:active {
+            transform: translateY(0);
+        }
+
+        .status-badge {
+            margin-top: auto;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: var(--secondary-accent);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            flex-shrink: 0;
+            margin-top: 24px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--secondary-accent);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Chat Workspace */
+        .workspace {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        .header {
+            height: 70px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            background: rgba(11, 13, 25, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .header-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Message Bubble Design */
+        .message {
+            max-width: 80%;
+            padding: 18px 24px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 15px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message p {
+            margin-bottom: 12px;
+        }
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+        .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        .message h1 { font-size: 1.4rem; }
+        .message h2 { font-size: 1.25rem; }
+        .message h3 { font-size: 1.15rem; }
+        .message ul, .message ol {
+            margin-bottom: 12px;
+            padding-left: 20px;
+        }
+        .message li {
+            margin-bottom: 4px;
+        }
+        .message code {
+            font-family: 'Fira Code', monospace;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #ec4899;
+        }
+        .message pre code {
+            color: inherit;
+            background: transparent;
+            padding: 0;
+            font-size: 13.5px;
+        }
+        .message a {
+            color: #818cf8;
+            text-decoration: none;
+            border-bottom: 1px dashed #818cf8;
+            transition: color 0.2s ease;
+        }
+        .message a:hover {
+            color: #a5b4fc;
+        }
+        .message hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 16px 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Thought Block */
+        .thought-container {
+            background: var(--thought-bg);
+            border-left: 3px solid var(--primary-accent);
+            border-radius: 6px;
+            margin-bottom: 16px;
+            border: 1px solid var(--thought-border);
+            border-left-width: 4px;
+            overflow: hidden;
+        }
+
+        .thought-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            background: rgba(99, 102, 241, 0.03);
+            font-size: 13px;
+            font-weight: 600;
+            color: #818cf8;
+        }
+
+        .thought-header:hover {
+            background: rgba(99, 102, 241, 0.06);
+        }
+
+        .thought-content {
+            padding: 12px 14px;
+            font-size: 13.5px;
+            color: #a5b4fc;
+            white-space: pre-wrap;
+            border-top: 1px solid rgba(99, 102, 241, 0.1);
+            font-family: inherit;
+        }
+
+        .thought-arrow {
+            transition: transform 0.2s ease;
+        }
+
+        .thought-container.collapsed .thought-content {
+            display: none;
+        }
+
+        .thought-container.collapsed .thought-arrow {
+            transform: rotate(-90deg);
+        }
+
+        /* Metrics Display */
+        .metrics-bar {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .metric {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            position: relative;
+            cursor: help;
+        }
+
+        .metric-val {
+            color: var(--secondary-accent);
+        }
+
+        /* Metric Tooltips */
+        .metric::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            background: rgba(18, 22, 41, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: normal;
+            white-space: normal;
+            width: max-content;
+            max-width: 220px;
+            line-height: 1.4;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .metric:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Code block styling */
+        pre {
+            background: rgba(0, 0, 0, 0.3) !important;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 12px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            font-size: 13.5px;
+        }
+
+        /* Input Area */
+        .input-container {
+            padding: 24px 32px 32px 32px;
+            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
+        }
+
+        .input-wrapper {
+            position: relative;
+            background: rgba(25, 30, 56, 0.65);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 10px 14px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            resize: none;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            height: 48px;
+            padding-right: 50px;
+            line-height: 1.5;
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 14px;
+            bottom: 12px;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            background: var(--primary-accent);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .send-btn:hover {
+            opacity: 0.95;
+            transform: scale(1.03);
+        }
+
+        .send-btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-loader {
+            display: flex;
+            gap: 4px;
+            padding: 6px 0;
+            align-self: flex-start;
+        }
+
+        .typing-loader span {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-loader span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-loader span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Markdown Tables */
+        .message table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.015);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .message th, .message td {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+        }
+        .message th {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+        }
+        .message tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.01);
+        }
+        .message tr:hover {
+            background: rgba(99, 102, 241, 0.04);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">T</div>
+            <div class="logo-text">TPM-MLX</div>
+        </div>
+
+        <div class="section-title">Model Management</div>
+        
+        <div class="control-group">
+            <label for="model-select">Loaded Model</label>
+            <select id="model-select">
+                <option value="" disabled selected>Loading models...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="kv-size-input">Max KV Cache Size</label>
+            <input type="number" id="kv-size-input" value="4096" min="256" step="256">
+        </div>
+
+        <button class="load-btn" id="load-model-btn">Load Model</button>
+
+        <div class="section-title">Parameters</div>
+
+        <div class="control-group">
+            <div class="range-value">
+                <label for="temp-slider">Temperature</label>
+                <span id="temp-val">0.0</span>
+            </div>
+            <input type="range" id="temp-slider" min="0" max="1.5" step="0.1" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <div class="range-value">
+                <label for="tokens-input">Max Tokens</label>
+            </div>
+            <input type="number" id="tokens-input" value="4096" min="1" max="8192">
+        </div>
+
+        <div class="control-group">
+            <div class="toggle-container" id="reasoning-toggle-container">
+                <label for="reasoning-checkbox">Reasoning Mode</label>
+                <label class="switch">
+                    <input type="checkbox" id="reasoning-checkbox" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Status badge -->
+        <div class="status-badge" id="status-badge">
+            <div class="status-dot"></div>
+            <span id="status-text">Server Connected</span>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <div class="header">
+            <div class="header-title" id="current-model-header">No Model Loaded</div>
+        </div>
+
+        <div class="chat-container" id="chat-container">
+            <div class="message assistant">
+                Hello! Load a model from the sidebar to begin testing. TPM-MLX utilizes pre-allocated static KV caches and optimized zero-sync pipelines to achieve maximum tokens-per-second.
+            </div>
+        </div>
+
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea id="user-input" placeholder="Type a message... (Press Enter to send, Shift+Enter for new line)" disabled></textarea>
+                <button class="send-btn" id="send-btn" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = ""; // Relative path to match hosted server
+        let activeModel = "";
+        let chatHistory = [];
+
+        // DOM elements
+        const modelSelect = document.getElementById("model-select");
+        const kvSizeInput = document.getElementById("kv-size-input");
+        const loadModelBtn = document.getElementById("load-model-btn");
+        const tempSlider = document.getElementById("temp-slider");
+        const tempVal = document.getElementById("temp-val");
+        const tokensInput = document.getElementById("tokens-input");
+        const reasoningCheckbox = document.getElementById("reasoning-checkbox");
+        const statusBadge = document.getElementById("status-badge");
+        const statusText = document.getElementById("status-text");
+        const currentModelHeader = document.getElementById("current-model-header");
+        const chatContainer = document.getElementById("chat-container");
+        const userInput = document.getElementById("user-input");
+        const sendBtn = document.getElementById("send-btn");
+
+        // Set up parameters listener
+        tempSlider.addEventListener("input", (e) => {
+            tempVal.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        // Initialize lists and fetch available models
+        async function fetchModels() {
+            try {
+                const resp = await fetch(`${API_URL}/v1/models`);
+                const data = await resp.json();
+                
+                modelSelect.innerHTML = "";
+                let activeFound = false;
+
+                data.data.forEach(model => {
+                    const option = document.createElement("option");
+                    option.value = model.id;
+                    option.textContent = model.id + (model.active ? " (active)" : "");
+                    if (model.active) {
+                        option.selected = true;
+                        activeModel = model.id;
+                        activeFound = true;
+                        if (model.max_kv_size) {
+                            kvSizeInput.value = model.max_kv_size;
+                        }
+                    }
+                    modelSelect.appendChild(option);
+                });
+
+                if (activeFound) {
+                    currentModelHeader.textContent = activeModel;
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    userInput.placeholder = "Type a message...";
+                } else {
+                    currentModelHeader.textContent = "Select and Load a Model";
+                }
+            } catch (err) {
+                console.error("Error loading models:", err);
+                statusText.textContent = "Server Connection Failed";
+                statusBadge.style.borderColor = "rgba(239, 68, 68, 0.25)";
+                statusBadge.style.color = "#ef4444";
+                statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+            }
+        }
+
+        // Load model event
+        loadModelBtn.addEventListener("click", async () => {
+            const selectedModel = modelSelect.value;
+            const kvSize = parseInt(kvSizeInput.value) || 4096;
+            if (!selectedModel) return;
+
+            loadModelBtn.disabled = true;
+            loadModelBtn.textContent = "Loading Model...";
+            statusText.textContent = "Loading Model...";
+            statusBadge.querySelector(".status-dot").style.backgroundColor = "#fbbf24"; // Amber
+
+            try {
+                const resp = await fetch(`${API_URL}/v1/load_model`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ model: selectedModel, max_kv_size: kvSize })
+                });
+                const res = await resp.json();
+                
+                if (resp.ok) {
+                    activeModel = selectedModel;
+                    currentModelHeader.textContent = activeModel;
+                    statusText.textContent = "Model Loaded";
+                    statusBadge.querySelector(".status-dot").style.backgroundColor = "#10b981"; // Green
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    userInput.placeholder = "Type a message...";
+                    
+                    // Clear chat
+                    chatContainer.innerHTML = `
+                        <div class="message assistant">
+                            Successfully loaded <strong>${activeModel}</strong>. Ready for optimized inference!
+                        </div>
+                    `;
+                    chatHistory = [];
+                } else {
+                    alert("Error loading model: " + res.detail);
+                    statusText.textContent = "Load Failed";
+                    statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+                }
+            } catch (err) {
+                alert("Error loading model: " + err);
+                statusText.textContent = "Load Failed";
+                statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+            } finally {
+                loadModelBtn.disabled = false;
+                loadModelBtn.textContent = "Load Model";
+                fetchModels();
+            }
+        });
+
+        // Toggle reasoning click
+        document.getElementById("reasoning-toggle-container").addEventListener("click", (e) => {
+            if (e.target !== reasoningCheckbox) {
+                reasoningCheckbox.checked = !reasoningCheckbox.checked;
+            }
+        });
+
+        // Format message HTML (handling reasoning collapsible thoughts)
+        function formatMessageHtml(text) {
+            let htmlContent = "";
+            let remainingText = text;
+
+            // Check for reasoning think blocks
+            let thinkStart = text.indexOf("<think>");
+            let thinkEnd = text.indexOf("</think>");
+            let tagLenStart = 7;
+            let tagLenEnd = 8;
+
+            if (thinkStart === -1) {
+                // Check for gemma4 style think blocks
+                thinkStart = text.indexOf("<|channel>thought");
+                thinkEnd = text.indexOf("<channel|>");
+                tagLenStart = 17;
+                tagLenEnd = 10;
+            }
+
+            if (thinkStart !== -1) {
+                // Yield text before think block
+                const before = text.substring(0, thinkStart);
+                if (before) {
+                    htmlContent += `<div class="content-block">${parseMarkdown(before)}</div>`;
+                }
+
+                // Yield thinking content
+                let thinking = "";
+
+                if (thinkEnd !== -1) {
+                    thinking = text.substring(thinkStart + tagLenStart, thinkEnd);
+                    remainingText = text.substring(thinkEnd + tagLenEnd);
+                } else {
+                    thinking = text.substring(thinkStart + tagLenStart);
+                    remainingText = "";
+                }
+
+                htmlContent += `
+                    <div class="thought-container">
+                        <div class="thought-header" onclick="toggleThought(this)">
+                            <span>🧠 THOUGHT PROCESS</span>
+                            <span class="thought-arrow">▼</span>
+                        </div>
+                        <div class="thought-content">${escapeHtml(thinking)}</div>
+                    </div>
+                `;
+            }
+
+            if (remainingText) {
+                // Format using custom robust Markdown parser
+                htmlContent += `<div class="content-block">${parseMarkdown(remainingText)}</div>`;
+            }
+
+            return htmlContent;
+        }
+
+        function toggleThought(header) {
+            const container = header.parentElement;
+            container.classList.toggle("collapsed");
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function parseMarkdown(text) {
+            const codeBlocks = [];
+            let processedText = text;
+            
+            // 1. Extract and format multi-line code blocks
+            processedText = processedText.replace(/```([\s\S]*?)```/g, (match, codeBlock) => {
+                const lineBreakIndex = codeBlock.indexOf("\n");
+                let lang = "code";
+                let code = codeBlock;
+                if (lineBreakIndex !== -1) {
+                    lang = codeBlock.substring(0, lineBreakIndex).trim();
+                    code = codeBlock.substring(lineBreakIndex + 1);
+                }
+                const escapedCode = escapeHtml(code);
+                const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
+                codeBlocks.push(`<pre><code class="language-${lang}">${escapedCode}</code></pre>`);
+                return placeholder;
+            });
+
+            // 2. Extract and format inline code
+            const inlineCodes = [];
+            processedText = processedText.replace(/`([^`\n]+)`/g, (match, code) => {
+                const placeholder = `__INLINE_CODE_${inlineCodes.length}__`;
+                inlineCodes.push(`<code>${escapeHtml(code)}</code>`);
+                return placeholder;
+            });
+
+            // 3. Escape all remaining raw HTML tags
+            processedText = escapeHtml(processedText);
+
+            // Helper to check for delimiter rows
+            function isDelimiterRow(row) {
+                if (!row) return false;
+                const t = row.trim();
+                return t.startsWith('|') && /^[|:\-\s]+$/.test(t);
+            }
+
+            // 4. Parse block elements line by line
+            const lines = processedText.split('\n');
+            let inList = false;
+            let listType = null;
+            let inTable = false;
+            let tableRows = [];
+            let tableAlignments = [];
+            let result = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                // Headers
+                const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headerMatch) {
+                    if (inList) {
+                        result.push(`</${listType}>`);
+                        inList = false;
+                        listType = null;
+                    }
+                    if (inTable) {
+                        tableRows.push('</tbody>');
+                        result.push('<table>' + tableRows.join('\n') + '</table>');
+                        inTable = false;
+                        tableRows = [];
+                        tableAlignments = [];
+                    }
+                    const level = headerMatch[1].length;
+                    result.push(`<h${level}>${headerMatch[2]}</h${level}>`);
+                    continue;
+                }
+
+                // Horizontal Rules
+                if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+                    if (inList) {
+                        result.push(`</${listType}>`);
+                        inList = false;
+                        listType = null;
+                    }
+                    if (inTable) {
+                        tableRows.push('</tbody>');
+                        result.push('<table>' + tableRows.join('\n') + '</table>');
+                        inTable = false;
+                        tableRows = [];
+                        tableAlignments = [];
+                    }
+                    result.push('<hr>');
+                    continue;
+                }
+
+                // Unordered lists
+                const ulMatch = line.match(/^(\s*)([-*+])\s+(.+)$/);
+                if (ulMatch) {
+                    if (inTable) {
+                        tableRows.push('</tbody>');
+                        result.push('<table>' + tableRows.join('\n') + '</table>');
+                        inTable = false;
+                        tableRows = [];
+                        tableAlignments = [];
+                    }
+                    if (!inList || listType !== 'ul') {
+                        if (inList) result.push(`</${listType}>`);
+                        result.push('<ul>');
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    result.push(`<li>${ulMatch[3]}</li>`);
+                    continue;
+                }
+
+                // Ordered lists
+                const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
+                if (olMatch) {
+                    if (inTable) {
+                        tableRows.push('</tbody>');
+                        result.push('<table>' + tableRows.join('\n') + '</table>');
+                        inTable = false;
+                        tableRows = [];
+                        tableAlignments = [];
+                    }
+                    if (!inList || listType !== 'ol') {
+                        if (inList) result.push(`</${listType}>`);
+                        result.push('<ol>');
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    result.push(`<li>${olMatch[3]}</li>`);
+                    continue;
+                }
+
+                // Table parsing check
+                if (!inTable && line.includes('|') && i + 1 < lines.length && isDelimiterRow(lines[i + 1])) {
+                    if (inList) {
+                        result.push(`</${listType}>`);
+                        inList = false;
+                        listType = null;
+                    }
+                    inTable = true;
+                    tableRows = [];
+                    tableAlignments = [];
+
+                    // Parse alignments from the delimiter row lines[i+1]
+                    const delimiterCols = lines[i + 1].split('|').map(s => s.trim());
+                    let startDelim = lines[i + 1].startsWith('|') ? 1 : 0;
+                    let endDelim = lines[i + 1].endsWith('|') ? delimiterCols.length - 1 : delimiterCols.length;
+                    const cleanDelim = delimiterCols.slice(startDelim, endDelim);
+
+                    tableAlignments = cleanDelim.map(col => {
+                        const start = col.startsWith(':');
+                        const end = col.endsWith(':');
+                        if (start && end) return 'center';
+                        if (end) return 'right';
+                        return 'left';
+                    });
+
+                    // Parse header row
+                    const headerCols = line.split('|').map(s => s.trim());
+                    let startIdx = line.startsWith('|') ? 1 : 0;
+                    let endIdx = line.endsWith('|') ? headerCols.length - 1 : headerCols.length;
+                    const cleanHeaders = headerCols.slice(startIdx, endIdx);
+
+                    tableRows.push('<thead><tr>' + cleanHeaders.map((col, idx) => {
+                        const align = tableAlignments[idx] || 'left';
+                        return `<th style="text-align: ${align}">${col}</th>`;
+                    }).join('') + '</tr></thead><tbody>');
+
+                    i++; // skip the delimiter row
+                    continue;
+                }
+
+                if (inTable) {
+                    if (line.includes('|')) {
+                        const cols = line.split('|').map(s => s.trim());
+                        let startIdx = line.startsWith('|') ? 1 : 0;
+                        let endIdx = line.endsWith('|') ? cols.length - 1 : cols.length;
+                        const cleanCols = cols.slice(startIdx, endIdx);
+
+                        tableRows.push('<tr>' + cleanCols.map((col, idx) => {
+                            const align = tableAlignments[idx] || 'left';
+                            return `<td style="text-align: ${align}">${col}</td>`;
+                        }).join('') + '</tr>');
+                        continue;
+                    } else {
+                        // Table ended
+                        tableRows.push('</tbody>');
+                        result.push('<table>' + tableRows.join('\n') + '</table>');
+                        inTable = false;
+                        tableRows = [];
+                        tableAlignments = [];
+                        // Fall through to process current line normally
+                    }
+                }
+
+                // Empty lines close lists
+                if (trimmed === '') {
+                    if (inList) {
+                        result.push(`</${listType}>`);
+                        inList = false;
+                        listType = null;
+                    }
+                    result.push('<br>');
+                    continue;
+                }
+
+                // Standard paragraph text
+                if (inList) {
+                    // Append text to previous list item
+                    result[result.length - 1] = result[result.length - 1].replace(/<\/li>$/, ` ${trimmed}</li>`);
+                } else {
+                    result.push(`<p>${line}</p>`);
+                }
+            }
+
+            if (inList) {
+                result.push(`</${listType}>`);
+            }
+            if (inTable) {
+                tableRows.push('</tbody>');
+                result.push('<table>' + tableRows.join('\n') + '</table>');
+            }
+
+            let parsedHTML = result.join('\n');
+
+            // 5. Parse inline tags (bold, italic, links)
+            // Bold
+            parsedHTML = parsedHTML.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            parsedHTML = parsedHTML.replace(/__(.*?)__/g, '<strong>$1</strong>');
+            // Italic
+            parsedHTML = parsedHTML.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            parsedHTML = parsedHTML.replace(/_(.*?)_/g, '<em>$1</em>');
+            // Links (sanitized against javascript: and data: XSS vectors)
+            parsedHTML = parsedHTML.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+                const trimmedUrl = url.trim().toLowerCase();
+                if (trimmedUrl.startsWith('javascript:') || trimmedUrl.startsWith('data:')) {
+                    return `<span>${text}</span>`;
+                }
+                const escapedUrl = url.replace(/"/g, '&quot;');
+                return `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+            });
+
+            // Restore inline code segments
+            for (let i = 0; i < inlineCodes.length; i++) {
+                parsedHTML = parsedHTML.replace(`__INLINE_CODE_${i}__`, inlineCodes[i]);
+            }
+
+            // Restore code blocks
+            for (let i = 0; i < codeBlocks.length; i++) {
+                parsedHTML = parsedHTML.replace(`__CODE_BLOCK_${i}__`, codeBlocks[i]);
+            }
+
+            // Cleanup duplicate breaks inside paragraphs
+            parsedHTML = parsedHTML.replace(/<p><br><\/p>/g, '<br>');
+            
+            return parsedHTML;
+        }
+
+        // Send message function
+        async function sendMessage() {
+            const userText = userInput.value.trim();
+            if (!userText || userInput.disabled) return;
+
+            // Add user message to UI
+            const userMsgDiv = document.createElement("div");
+            userMsgDiv.className = "message user";
+            userMsgDiv.textContent = userText;
+            chatContainer.appendChild(userMsgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            userInput.value = "";
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Prepare history payload
+            chatHistory.push({ role: "user", content: userText });
+
+            // Assistant bubble loader
+            const assistantMsgDiv = document.createElement("div");
+            assistantMsgDiv.className = "message assistant";
+            
+            const loaderDiv = document.createElement("div");
+            loaderDiv.className = "typing-loader";
+            loaderDiv.innerHTML = "<span></span><span></span><span></span>";
+            assistantMsgDiv.appendChild(loaderDiv);
+            chatContainer.appendChild(assistantMsgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            // Build request params
+            const payload = {
+                model: activeModel,
+                messages: chatHistory,
+                max_tokens: parseInt(tokensInput.value) || 4096,
+                temperature: parseFloat(tempSlider.value),
+                stream: true,
+                reasoning: reasoningCheckbox.checked
+            };
+
+            let assistantText = "";
+            
+            try {
+                const response = await fetch(`${API_URL}/v1/chat/completions`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errObj = await response.json();
+                    throw new Error(errObj.detail || "Server error");
+                }
+
+                assistantMsgDiv.innerHTML = ""; // Clear loader
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop(); // Keep last incomplete line
+
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (!line.startsWith("data: ")) continue;
+                        
+                        const dataStr = line.slice(6);
+                        if (dataStr === "[DONE]") continue;
+
+                        try {
+                            const chunk = JSON.parse(dataStr);
+                            
+                            if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content) {
+                                assistantText += chunk.choices[0].delta.content;
+                                assistantMsgDiv.innerHTML = formatMessageHtml(assistantText);
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }
+                            
+                            // Render final stats when available
+                            if (chunk.tpm_metrics) {
+                                const metrics = chunk.tpm_metrics;
+                                const metricsDiv = document.createElement("div");
+                                metricsDiv.className = "metrics-bar";
+                                metricsDiv.innerHTML = `
+                                    <div class="metric" data-tooltip="Tokens generated per second during the response generation phase.">Throughput: <span class="metric-val">${metrics.tps} t/s</span></div>
+                                    <div class="metric" data-tooltip="Time-To-First-Token: Latency from receiving prompt to emitting the first token.">TTFT: <span class="metric-val">${metrics.ttft_ms} ms</span></div>
+                                    <div class="metric" data-tooltip="Tokens processed per second during prompt ingestion.">Prompt: <span class="metric-val">${metrics.prompt_tps} t/s</span></div>
+                                `;
+                                assistantMsgDiv.appendChild(metricsDiv);
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.warn("Could not parse stream JSON chunk:", e, dataStr);
+                        }
+                    }
+                }
+                
+                // Add Assistant content to history
+                chatHistory.push({ role: "assistant", content: assistantText });
+
+            } catch (err) {
+                console.error("Inference Error:", err);
+                assistantMsgDiv.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
+            } finally {
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // Event listeners for inputs
+        userInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        sendBtn.addEventListener("click", sendMessage);
+
+        // Fetch models on load
+        fetchModels();
+    </script>
+</body>
+</html>

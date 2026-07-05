@@ -1,0 +1,66 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Pyinstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit testing / coverage reports
+htmlcov/
+.tox/
+.nosexy
+.noseids
+.pytest_cache/
+.cache/
+.html_artifacts/
+.system_generated/
+.python-version
+.pytest_cache
+
+# Poetry & uv local files
+.venv/
+venv/
+ENV/
+env/
+
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+
+# Custom log / test output
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Benchmark reports
+tests/perf_report*.md
