@@ -24,17 +24,25 @@ def main():
 
 @main.command()
 @click.option("--model", "-m", type=str, default="mlx-community/gemma-4-e2b-it-4bit", help="Model path or Hugging Face repository ID")
+@click.option("--draft-model", "-d", type=str, default=None, help="Companion draft model path for speculative decoding (e.g. Gemma 4 assistant)")
 @click.option("--port", "-p", type=int, default=2505, help="Port to run the server on (default: 2505)")
 @click.option("--host", "-h", type=str, default="127.0.0.1", help="Host address to run the server on (default: 127.0.0.1)")
 @click.option("--max-kv-size", type=int, default=4096, help="Pre-allocated KV cache size (default: 4096)")
+@click.option("--mtp/--no-mtp", default=True, help="Toggle Multi-Token Prediction (MTP) self-speculation (default: True)")
+@click.option("--num-draft-tokens", type=int, default=None, help="Number of speculative tokens to draft per step")
 @click.option("--reasoning/--no-reasoning", default=False, help="Toggle whether the server outputs <think> blocks by default (default: False)")
-def serve(model: str, port: int, host: str, max_kv_size: int, reasoning: bool):
+def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool):
     """Starts the FastAPI OpenAI-compatible server and Web Playground."""
     logger.info(f"Starting TPM-MLX REST server on http://{host}:{port}/")
     
     # Store settings in environment variables for server startup loading
     os.environ["TPM_DEFAULT_MODEL"] = model
+    if draft_model:
+        os.environ["TPM_DEFAULT_DRAFT_MODEL"] = draft_model
     os.environ["TPM_MAX_KV_SIZE"] = str(max_kv_size)
+    os.environ["TPM_ENABLE_MTP"] = str(mtp)
+    if num_draft_tokens is not None:
+        os.environ["TPM_NUM_DRAFT_TOKENS"] = str(num_draft_tokens)
     os.environ["TPM_DEFAULT_REASONING"] = str(reasoning)
     
     # Run Uvicorn ASGI server
@@ -43,23 +51,32 @@ def serve(model: str, port: int, host: str, max_kv_size: int, reasoning: bool):
 
 @main.command()
 @click.option("--model", "-m", type=str, default="mlx-community/gemma-4-e2b-it-4bit", help="Model path or Hugging Face repository ID")
+@click.option("--draft-model", "-d", type=str, default=None, help="Companion draft model path for speculative decoding")
 @click.option("--temp", "-t", type=float, default=0.0, help="Generation temperature (default: 0.0)")
 @click.option("--max-tokens", "-n", type=int, default=4096, help="Maximum tokens to generate (default: 4096)")
 @click.option("--max-kv-size", type=int, default=4096, help="Pre-allocated KV cache size (default: 4096)")
+@click.option("--mtp/--no-mtp", default=True, help="Toggle Multi-Token Prediction (MTP) self-speculation (default: True)")
+@click.option("--num-draft-tokens", type=int, default=None, help="Number of speculative tokens to draft per step")
 @click.option("--reasoning/--no-reasoning", default=False, help="Toggle displaying model reasoning <think> blocks (default: False)")
-def chat(model: str, temp: float, max_tokens: int, max_kv_size: int, reasoning: bool):
+def chat(model: str, draft_model: Optional[str], temp: float, max_tokens: int, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool):
     """Starts a local interactive chat session in the terminal."""
     click.echo(click.style(f"Initializing engine for {model}...", fg="cyan"))
     
     try:
         from tpm_mlx.engine import MLXEngine
-        engine = MLXEngine(model_path_or_id=model, max_kv_size=max_kv_size)
+        engine = MLXEngine(
+            model_path_or_id=model, 
+            max_kv_size=max_kv_size,
+            draft_model_path_or_id=draft_model,
+            enable_mtp=mtp,
+            num_draft_tokens=num_draft_tokens,
+        )
     except Exception as e:
         click.echo(click.style(f"Error loading model: {e}", fg="red"), err=True)
         sys.exit(1)
         
-    click.echo(click.style("Engine ready! Type '/exit' or '/quit' to exit.", fg="green"))
-    click.echo(click.style(f"Settings: temp={temp}, max_tokens={max_tokens}, reasoning={reasoning}", fg="yellow"))
+    click.echo(click.style(f"Engine ready! [Speculation: {engine.speculation_mode.upper()}] Type '/exit' or '/quit' to exit.", fg="green"))
+    click.echo(click.style(f"Settings: temp={temp}, max_tokens={max_tokens}, reasoning={reasoning}, mtp={engine.has_mtp}", fg="yellow"))
     click.echo("-" * 50)
     
     chat_history = []
@@ -183,11 +200,15 @@ def chat(model: str, temp: float, max_tokens: int, max_kv_size: int, reasoning: 
             
             # Print performance metrics at the bottom
             if last_response:
+                spec_info = ""
+                if engine.speculation_mode != "none":
+                    spec_info = f" | Spec: {engine.speculation_mode.upper()} (acc: {engine.speculation_stats.acceptance_rate * 100:.1f}%)"
                 metrics_str = (
                     f"TPS: {last_response.generation_tps:.2f} tokens/s | "
                     f"TTFT: {last_response.prompt_tokens / last_response.prompt_tps * 1000.0:.2f} ms | "
                     f"Prompt: {last_response.prompt_tokens} tokens ({last_response.prompt_tps:.2f} tokens/s) | "
                     f"Generation: {last_response.generation_tokens} tokens"
+                    f"{spec_info}"
                 )
                 click.echo(click.style(f"[{metrics_str}]", fg="cyan", dim=True))
                 

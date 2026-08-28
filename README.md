@@ -1,43 +1,52 @@
-# TPM-MLX: Optimized Apple Silicon Local Inference Engine
+# TPM-MLX: Optimized Apple Silicon Inference Engine
 
 ![TPM-MLX vs Ollama Benchmarks](tpm_mlx_vs_ollama_benchmarks.png)
 
-**TPM-MLX (`tpm`)** is a zero-bloat, highly optimized local LLM inference engine built specifically for Apple Silicon hardware. Utilizing direct `mlx` and `mlx-lm` Metal bindings, it achieves maximum tokens-per-second (t/s) throughput by eliminating CPU-GPU synchronization stalls and using a pre-allocated static Key-Value (KV) cache. 
-
-Out-of-the-box, it serves an **OpenAI-compatible REST API**, an **interactive terminal CLI**, and a **premium glassmorphic Web Playground** on port `2505`.
-
----
-
-## 🚀 Key Performance Enhancements
-
-1. **Pre-allocated Static KV Cache**:
-   * Pre-allocates contiguous memory buffers up to the maximum sequence size (default `4096`) on the first forward pass.
-   * Enables in-place, zero-copy index updates, avoiding memory fragmentation and dynamic memory reallocation overhead during inference.
-   * Falls back to dynamic growth if the prompt exceeds the pre-allocated cache boundary.
-2. **Zero CPU-GPU Sync Autoregressive Loop**:
-   * Evaluates token indices and KV updates concurrently on the GPU using `mx.eval(token, cache)`. This avoids blocking `.item()` calls, preventing hardware execution stalls.
-3. **Dynamic Architecture Patching**:
-   * Automatically intercepts and resolves structural anomalies and weight-mapping mismatches in cutting-edge model architectures.
-   * Provides zero-day support for new model variants before official upstream frameworks catch up.
-4. **Reasoning State Machine Parser**:
-   * Supports real-time streaming state parsing for both DeepSeek-style (`<think>...</think>`) and Gemma 4-style (`<|channel>thought...<channel|>`) reasoning tags.
-   * Intercepts and filters out thinking tokens by default (`--no-reasoning`) for instant answers, or renders them as dimmed terminal text block / collapsible cards in the Web UI when reasoning mode is enabled.
+**TPM-MLX (`tpm`)** is a zero-bloat, high-performance local inference engine designed specifically for Apple Silicon hardware. Powered by Apple’s native `mlx`, `mlx-lm`, and `mlx-vlm` Metal kernels, it achieves state-of-the-art tokens-per-second (TPS) throughput by combining:
+- **Native Multi-Token Prediction (MTP) Self-Speculation** (up to **1.61× speedup** on 27B models).
+- **Zero-Config Dual-Backend Auto-Routing** (`mlx-lm` for pure LLMs + `mlx-vlm` for multimodal VLMs & Gemma 4).
+- **Pre-Allocated Static Key-Value (KV) Caching** (`PreAllocatedKVCache`) to eliminate GPU memory fragmentation.
+- **Live Streaming Reasoning Tag Normalizer** (`<think>` and `<|channel>thought`).
+- **OpenAI-Compatible REST API + Multimodal Vision Support** with a glassmorphic **Web Playground** on port `2505`.
 
 ---
 
-## 📊 Local Benchmarks (Apple M4 Pro - 64 GB Unified Memory)
+## 🚀 Key Features
 
-TPM-MLX maintains a significant throughput lead over **Ollama** while completely eliminating massive Time-To-First-Token (TTFT) ingestion spikes typical in agentic RAG workflows.
+### 1. ⚡ Native Multi-Token Prediction (MTP) Engine
+* **Transformer Trunk Self-Speculation:** Directly executes sequential MTP prediction heads using internal backbone hidden states for **Qwen 3.x, Xiaomi MiMo, and DeepSeek-V3** with negligible overhead.
+* **Recurrent Cache Rollback:** Employs stateful recurrent snapshotting (`_snapshot_recurrent`) and prefix token replay for hybrid linear/attention caches (`ArraysCache`), reaching **62% acceptance rate** and **25.5 TPS (1.61× boost)** on Qwen 3.8-27B.
+* **Standalone Checkpoint Auto-Remapping:** Automatically detects, un-flattens, and loads standalone quantized MTP checkpoints (e.g. `mlx-community/Qwen3.8-27B-MTP-4bit`) with dynamic 4-bit `QuantizedLinear` layer conversion.
 
-| Model | Engine | Throughput (TPS) | Time-To-First-Token (TTFT) |
-| :--- | :--- | :--- | :--- |
-| **Gemma 4 e2b (5B)** | **TPM-MLX** | **~118 t/s** | **0.00 ms** (Instant) |
-| | Ollama | ~95 t/s | ~4s - 13s |
-| **Gemma 4 e4b (8B)** | **TPM-MLX** | **~68 t/s** | **0.00 ms** (Instant) |
-| | Ollama | ~58 t/s | ~7s - 18s |
+### 2. 🔀 Zero-Config Dual-Backend Auto-Routing (`mlx-lm` + `mlx-vlm`)
+* **Zero User Friction:** Automatically inspects `config.json` at model load time and routes:
+  * **Pure Text LLMs** (Qwen, LLaMA, DeepSeek, Mistral) $\to$ **`mlx-lm`** + Native Trunk MTP.
+  * **Multimodal & Gemma 4 Models** $\to$ **`mlx-vlm`** + Official Gemma MTP Drafters.
+* **Gemma 4 MTP Assistant Drafters:** Seamlessly attaches companion drafters, reaching **132.6 TPS** on Gemma 4 E2B and **77.0 TPS** on Gemma 4 E4B.
+
+### 3. 🧠 Pre-allocated Static KV Cache
+* Pre-allocates contiguous memory buffers up to the maximum sequence size (default `4096`) on the first forward pass.
+* Eliminates dynamic memory reallocation overhead and OS memory fragmentation during long conversations.
+
+### 4. 🎭 Live Reasoning State Machine Normalizer
+* Real-time streaming state-machine parser for `<think>...</think>` and `<|channel>thought...<channel|>` tags.
+* Filters reasoning by default (`--no-reasoning`) for immediate answers, or normalizes it for clean rendering in Web UIs and terminal clients.
+
+---
+
+## 📊 Local Benchmarks (Apple Silicon Metal GPU)
+
+| Model | Architecture | Quant | Speculation Mode | Baseline Speed | TPM-MLX Speed | Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Qwen 3.8 27B** | 27B Dense (Hybrid Linear/Attn) | 4-bit | **Native MTP Head** | 15.81 TPS | **25.46 TPS** | **1.61× (+61%)** 🚀 |
+| **Gemma 4 E2B** | 2B Dense Edge | 4-bit | **Official MTP Drafter** | 115.54 TPS | **132.60 TPS** | **1.15× (+15%)** 🚀 |
+| **Gemma 4 E4B** | 4B Dense Edge | 4-bit | **Official MTP Drafter** | 68.17 TPS | **77.00 TPS** | **1.13× (+13%)** 🚀 |
+| **Gemma 4 26B-A4B** | 26B MoE (4B Active) | 4-bit | Native MoE Baseline | 68.59 TPS | **81.12 TPS** | **Fastest (Native MoE)** |
+| **Qwen 2.5 1.5B** | 1.5B Dense Edge | 4-bit | Standard Autoregressive | 213.15 TPS | **213.15 TPS** | Instant Edge Inference |
+| **Gemma 3 1B IT** | 1B Dense Edge | 4-bit | Standard Autoregressive | 247.88 TPS | **247.88 TPS** | Ultra-Fast Edge |
 
 > [!TIP]
-> For a detailed, task-specific breakdown covering complex simulations, logic deduction, JSON schema generation, and tool dispatching, view the full [BENCHMARKS.md](BENCHMARKS.md) report.
+> View the complete 13-model benchmark report and hardware performance analysis in [BENCHMARKS.md](BENCHMARKS.md).
 
 ---
 
@@ -46,84 +55,99 @@ TPM-MLX maintains a significant throughput lead over **Ollama** while completely
 ### Prerequisites
 * macOS (Apple Silicon M1/M2/M3/M4)
 * Python >= 3.12
-* [uv](https://github.com/astral-sh/uv) (recommended package manager)
+* [uv](https://github.com/astral-sh/uv) (recommended)
 
 ### Quick Setup
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/tpm-mlx.git
-   cd tpm-mlx
-   ```
-2. Install the package in editable mode:
-   ```bash
-   uv pip install -e .
-   ```
+```bash
+git clone https://github.com/yourusername/tpm-mlx.git
+cd tpm-mlx
+uv pip install -e .
+```
 
 ---
 
-## 💻 Usage
+## 💻 CLI Usage
 
-The engine is controlled via the `tpm` command-line tool.
-
-### 1. Start the API Server & Web Playground
-Launch the FastAPI server (default port `2505`):
+### 1. Launch API Server & Web Playground
 ```bash
-uv run tpm serve --model mlx-community/gemma-4-e2b-it-4bit --port 2505
-```
-Open **`http://localhost:2505`** in your browser to access the Web Playground.
+# Standard LLM:
+uv run tpm serve --model mlx-community/Qwen2.5-1.5B-Instruct-4bit --port 2505
 
-### 2. Run Interactive CLI Chat
-Chat with the model directly in your terminal:
+# Qwen 3.8 with Native MTP self-speculation:
+uv run tpm serve --model mlx-community/Qwen3.8-27B-4bit --draft-model mlx-community/Qwen3.8-27B-MTP-4bit --port 2505
+
+# Gemma 4 with official MTP assistant drafter:
+uv run tpm serve --model mlx-community/gemma-4-e4b-it-4bit --draft-model mlx-community/gemma-4-E4B-it-assistant-bf16 --port 2505
+```
+Open **`http://localhost:2505`** in your browser for the Web Playground.
+
+### 2. Interactive Terminal Chat
 ```bash
-uv run tpm chat --model mlx-community/gemma-4-e2b-it-4bit
+uv run tpm chat --model mlx-community/Qwen3.8-27B-4bit --draft-model mlx-community/Qwen3.8-27B-MTP-4bit
 ```
-*   To enable reasoning thoughts printout, run with `--reasoning`.
-*   To exit, type `/exit` or `/quit`.
+* Use `--reasoning` to display internal thought chains.
+* Type `/exit` or `/quit` to close.
 
-### 3. Pre-download Models
-Pre-download any model checkpoint from Hugging Face:
+### 3. Run Benchmarks
 ```bash
-uv run tpm download mlx-community/gemma-4-e2b-it-4bit
+# Single Model Benchmark:
+uv run python benchmarks/benchmark.py --model "mlx-community/Qwen3.8-27B-4bit" --draft-model "mlx-community/Qwen3.8-27B-MTP-4bit"
+
+# Full 13-Model Hardware Sanity & Matrix Suite:
+uv run python benchmarks/run_full_matrix.py
 ```
 
+---
 
 ## 🔌 OpenAI-Compatible API Endpoints
 
 ### `/v1/chat/completions` (POST)
-Supports standard OpenAI payloads, SSE streaming, and a custom `"reasoning"` toggle parameter.
+Supports standard OpenAI payloads, SSE streaming, multimodal image inputs, and custom `"reasoning"` toggling.
 
-#### Non-Streaming Example:
+#### 1. Text Completion Example:
 ```bash
 curl -X POST http://localhost:2505/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gemma-4-e2b-it-4bit",
-    "messages": [{"role": "user", "content": "Explain Apple Silicon in 1 sentence."}],
+    "model": "mlx-community/Qwen3.8-27B-4bit",
+    "messages": [{"role": "user", "content": "Explain quantum superposition in 2 sentences."}],
     "stream": false,
-    "max_tokens": 512,
-    "reasoning": false
+    "max_tokens": 256
   }'
 ```
 
-#### Streaming Example:
+#### 2. Multimodal Vision Example (with image_url):
 ```bash
 curl -X POST http://localhost:2505/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gemma-4-e2b-it-4bit",
-    "messages": [{"role": "user", "content": "Write a short poem."}],
-    "stream": true,
-    "reasoning": true
+    "model": "mlx-community/gemma-4-e4b-it-4bit",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "Describe what is in this image."},
+          {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}
+        ]
+      }
+    ],
+    "max_tokens": 256
   }'
 ```
+
+#### 3. Model Telemetry (`/v1/models`):
+```bash
+curl http://localhost:2505/v1/models
+```
+Returns active model info, `backend` (`"llm"` or `"vlm"`), `speculation_mode` (`"mtp"`, `"draft"`, or `"none"`), and `has_mtp`.
 
 ---
 
 ## 🔒 Security & Code Quality
 
-* **Safetensors Native Weights**: Only loads weights in the standard `.safetensors` format, which is secure against arbitrary pickle-code execution vulnerabilities.
-* **XSS Sanitized UI**: The built-in client-side markdown compiler escapes all HTML elements and sanitizes URL schemas inside hyperlink blocks (`[text](url)`) to block `javascript:` and `data:` XSS vectors.
-* **OpenAPI Schema Validation**: All REST inputs are strictly validated at the boundaries using FastAPI Pydantic models.
+* **Safetensors Native**: Loads only `.safetensors` model weights to eliminate arbitrary code execution risks.
+* **XSS Sanitized UI**: Markdown renderer escapes HTML and sanitizes URI schemes to prevent script injection.
+* **OpenAPI Validation**: Strict boundary schema validation powered by Pydantic and FastAPI.
 
 ---
 

@@ -6,7 +6,7 @@ import json
 import uuid
 import asyncio
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union, Tuple
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor
 
@@ -49,7 +49,46 @@ app.add_middleware(
 # Input Schemas
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: Union[str, List[Dict[str, Any]]]
+
+
+def _extract_text_and_images(messages: List[ChatMessage]) -> Tuple[List[Dict[str, Any]], List[Any]]:
+    """Extracts text messages and PIL images from OpenAI multimodal messages format."""
+    formatted_messages = []
+    images = []
+    
+    for m in messages:
+        if isinstance(m.content, str):
+            formatted_messages.append({"role": m.role, "content": m.content})
+        elif isinstance(m.content, list):
+            text_parts = []
+            for part in m.content:
+                if isinstance(part, dict):
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif part.get("type") == "image_url":
+                        img_url = part.get("image_url", {}).get("url", "")
+                        if img_url:
+                            try:
+                                import base64
+                                import io
+                                from PIL import Image
+                                if img_url.startswith("data:image"):
+                                    header, data = img_url.split(",", 1)
+                                    img = Image.open(io.BytesIO(base64.b64decode(data)))
+                                    images.append(img)
+                                elif img_url.startswith("http"):
+                                    import requests
+                                    resp = requests.get(img_url, timeout=10)
+                                    img = Image.open(io.BytesIO(resp.content))
+                                    images.append(img)
+                            except Exception as ex:
+                                logger.warning(f"Failed to load image from {img_url[:30]}...: {ex}")
+            formatted_messages.append({"role": m.role, "content": " ".join(text_parts)})
+        else:
+            formatted_messages.append({"role": m.role, "content": str(m.content)})
+            
+    return formatted_messages, images
 
 
 class ChatCompletionRequest(BaseModel):
@@ -63,20 +102,33 @@ class ChatCompletionRequest(BaseModel):
 
 class LoadModelRequest(BaseModel):
     model: str
+    draft_model: Optional[str] = None
     max_kv_size: Optional[int] = None
+    enable_mtp: Optional[bool] = True
+    num_draft_tokens: Optional[int] = None
 
 
 # Helper to dynamically load a model in the server
-async def _load_engine(model_id: str, max_kv_size: int):
+async def _load_engine(
+    model_id: str, 
+    max_kv_size: int,
+    draft_model: Optional[str] = None,
+    enable_mtp: bool = True,
+    num_draft_tokens: Optional[int] = None,
+):
     global engine, loaded_model_id
     async with model_loading_lock:
-        logger.info(f"Loading model: {model_id} (KV Cache Size: {max_kv_size})...")
+        logger.info(f"Loading model: {model_id} (KV Cache Size: {max_kv_size}, Draft: {draft_model}, MTP: {enable_mtp})...")
         start_time = time.perf_counter()
         
-        # Instantiate engine (CPU-GPU operations are synchronous in MLX but we run in executor if needed)
-        # To avoid blocking the async loop, we run synchronous init in a thread executor
         def init_engine():
-            return MLXEngine(model_path_or_id=model_id, max_kv_size=max_kv_size)
+            return MLXEngine(
+                model_path_or_id=model_id, 
+                max_kv_size=max_kv_size,
+                draft_model_path_or_id=draft_model,
+                enable_mtp=enable_mtp,
+                num_draft_tokens=num_draft_tokens,
+            )
             
         loop = asyncio.get_running_loop()
         new_engine = await loop.run_in_executor(mlx_executor, init_engine)
@@ -84,17 +136,27 @@ async def _load_engine(model_id: str, max_kv_size: int):
         engine = new_engine
         loaded_model_id = model_id
         duration = time.perf_counter() - start_time
-        logger.info(f"Successfully loaded {model_id} in {duration:.2f}s")
+        logger.info(f"Successfully loaded {model_id} [Speculation: {engine.speculation_mode.upper()}] in {duration:.2f}s")
 
 
 @app.on_event("startup")
 async def startup_event():
     # Attempt to load default model if specified in environment
     default_model = os.environ.get("TPM_DEFAULT_MODEL")
+    draft_model = os.environ.get("TPM_DEFAULT_DRAFT_MODEL")
     kv_size = int(os.environ.get("TPM_MAX_KV_SIZE", str(default_max_kv_size)))
+    enable_mtp = os.environ.get("TPM_ENABLE_MTP", "True").lower() == "true"
+    num_draft = int(os.environ.get("TPM_NUM_DRAFT_TOKENS")) if os.environ.get("TPM_NUM_DRAFT_TOKENS") else None
+    
     if default_model:
         try:
-            await _load_engine(default_model, kv_size)
+            await _load_engine(
+                model_id=default_model, 
+                max_kv_size=kv_size,
+                draft_model=draft_model,
+                enable_mtp=enable_mtp,
+                num_draft_tokens=num_draft,
+            )
         except Exception as e:
             logger.error(f"Failed to load default model {default_model} on startup: {e}")
 
@@ -133,7 +195,10 @@ async def list_models():
             "created": int(time.time()),
             "owned_by": "tpm-mlx",
             "active": True,
-            "max_kv_size": getattr(engine, "max_kv_size", default_max_kv_size)
+            "backend": getattr(engine, "backend", "llm"),
+            "max_kv_size": getattr(engine, "max_kv_size", default_max_kv_size),
+            "speculation_mode": getattr(engine, "speculation_mode", "none"),
+            "has_mtp": getattr(engine, "has_mtp", False),
         })
         
     # 2. Retrieve cached models on disk
@@ -159,12 +224,22 @@ async def load_model_endpoint(req: LoadModelRequest):
     """
     global default_max_kv_size
     kv_size = req.max_kv_size or default_max_kv_size
+    enable_mtp = req.enable_mtp if req.enable_mtp is not None else True
     try:
-        await _load_engine(req.model, kv_size)
+        await _load_engine(
+            model_id=req.model, 
+            max_kv_size=kv_size,
+            draft_model=req.draft_model,
+            enable_mtp=enable_mtp,
+            num_draft_tokens=req.num_draft_tokens,
+        )
         return {
             "status": "success",
             "message": f"Successfully loaded model {req.model}",
-            "model": req.model
+            "model": req.model,
+            "backend": engine.backend if engine else "llm",
+            "speculation_mode": engine.speculation_mode if engine else "none",
+            "has_mtp": engine.has_mtp if engine else False,
         }
     except Exception as e:
         logger.error(f"Error loading model {req.model}: {e}")
@@ -190,18 +265,20 @@ async def chat_completions(req: ChatCompletionRequest):
     else:
         show_reasoning = os.environ.get("TPM_DEFAULT_REASONING", "False").lower() == "true"
         
-    # Standard OpenAI Chat template format mapping
-    formatted_messages = [{"role": m.role, "content": m.content} for m in req.messages]
+    # Standard OpenAI Chat template format mapping with multimodal image extraction
+    formatted_messages, images = _extract_text_and_images(req.messages)
     
     try:
-        # Use tokenizer to apply chat template
-        prompt = engine.tokenizer.apply_chat_template(
-            formatted_messages, 
-            tokenize=False, 
-            add_generation_prompt=True
-        )
+        if hasattr(engine, "processor") and hasattr(engine.processor, "apply_chat_template"):
+            from mlx_vlm.prompt_utils import apply_chat_template
+            prompt = apply_chat_template(engine.processor, engine.model.config, formatted_messages)
+        else:
+            prompt = engine.tokenizer.apply_chat_template(
+                formatted_messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
     except Exception as e:
-        # Fallback manual prompt construction if tokenizer template fails
         from tpm_mlx.utils import apply_chat_template_fallback
         prompt = apply_chat_template_fallback(formatted_messages, engine.tokenizer)
         logger.warning(f"Could not apply tokenizer template ({e}), using fallback formatting.")
@@ -214,21 +291,6 @@ async def chat_completions(req: ChatCompletionRequest):
     
     if req.stream:
         async def event_generator():
-            # Run stream generation loop
-            # Define synchronous generation call wrapper
-            def run_gen():
-                return list(
-                    engine.generate_stream(
-                        prompt=prompt,
-                        max_tokens=req.max_tokens,
-                        temperature=req.temperature,
-                        show_reasoning=show_reasoning
-                    )
-                )
-                
-            # Unfortunately calling list(generator) defeats the streaming purpose,
-            # so we must consume it iteratively in the thread executor.
-            # We use an queue to bridge thread generator and async generator.
             queue = asyncio.Queue(maxsize=16)
             
             def producer():
@@ -237,9 +299,9 @@ async def chat_completions(req: ChatCompletionRequest):
                         prompt=prompt,
                         max_tokens=req.max_tokens,
                         temperature=req.temperature,
-                        show_reasoning=show_reasoning
+                        show_reasoning=show_reasoning,
+                        images=images if images else None,
                     ):
-                        # Use run_coroutine_threadsafe to push to async queue
                         asyncio.run_coroutine_threadsafe(queue.put(response), loop).result()
                     asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
                 except Exception as ex:
@@ -300,7 +362,11 @@ async def chat_completions(req: ChatCompletionRequest):
                         "tps": round(generation_tps, 2),
                         "ttft_ms": round(ttft, 2),
                         "prompt_tps": round(prompt_tps, 2),
-                        "peak_memory_gb": round(peak_mem, 2)
+                        "peak_memory_gb": round(peak_mem, 2),
+                        "speculation_mode": engine.speculation_mode if engine else "none",
+                        "acceptance_rate": round(engine.speculation_stats.acceptance_rate, 4) if engine else 0.0,
+                        "draft_tokens_total": engine.speculation_stats.draft_tokens_total if engine else 0,
+                        "accepted_tokens_total": engine.speculation_stats.accepted_tokens_total if engine else 0,
                     }
                     
                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -357,7 +423,11 @@ async def chat_completions(req: ChatCompletionRequest):
                 "tps": round(last_resp.generation_tps, 2),
                 "ttft_ms": round(ttft_ms, 2),
                 "prompt_tps": round(last_resp.prompt_tps, 2),
-                "peak_memory_gb": round(last_resp.peak_memory, 2)
+                "peak_memory_gb": round(last_resp.peak_memory, 2),
+                "speculation_mode": engine.speculation_mode if engine else "none",
+                "acceptance_rate": round(engine.speculation_stats.acceptance_rate, 4) if engine else 0.0,
+                "draft_tokens_total": engine.speculation_stats.draft_tokens_total if engine else 0,
+                "accepted_tokens_total": engine.speculation_stats.accepted_tokens_total if engine else 0,
             }
         }
         

@@ -75,6 +75,17 @@ def test_pre_allocated_cache():
     # Verify values are correctly set in the pre-allocated buffer
     assert mx.allclose(cache.keys[..., 4:5, :], k2)
 
+    # Test trim & trimmable support
+    assert cache.is_trimmable() is True
+    trimmed = cache.trim(2)
+    assert trimmed == 2
+    assert cache.offset == 3
+
+    # Test trimming beyond offset
+    trimmed_excess = cache.trim(10)
+    assert trimmed_excess == 3
+    assert cache.offset == 0
+
 
 @pytest.mark.skipif(not mx.metal.is_available(), reason="Metal is required for GPU testing")
 def test_gemma_model_loading():
@@ -101,3 +112,74 @@ def test_gemma_model_loading():
     assert last_resp.generation_tokens > 0
     assert last_resp.generation_tps > 0.0
     assert last_resp.prompt_tps > 0.0
+    
+    # Check speculation properties for base Gemma model (no built-in MTP)
+    assert engine.has_mtp is False
+    assert engine.speculation_mode == "none"
+
+
+def test_engine_speculation_properties():
+    """Tests MLXEngine speculation mode and depth resolution."""
+    class MockEngine(MLXEngine):
+        def __init__(self, has_mtp=False, has_draft=False, user_depth=None):
+            self.mtp_head = None
+            if has_mtp:
+                class DummyMTPHead:
+                    depth = 3
+                self.mtp_head = DummyMTPHead()
+            self.draft_model = object() if has_draft else None
+            self.user_num_draft_tokens = user_depth
+
+    # Test MTP mode
+    eng_mtp = MockEngine(has_mtp=True)
+    assert eng_mtp.has_mtp is True
+    assert eng_mtp.speculation_mode == "mtp"
+    assert eng_mtp.num_draft_tokens == 3
+
+    # Test Draft mode
+    eng_draft = MockEngine(has_mtp=False, has_draft=True)
+    assert eng_draft.has_mtp is False
+    assert eng_draft.speculation_mode == "draft"
+    assert eng_draft.num_draft_tokens == 2
+
+    # Test user override
+    eng_override = MockEngine(has_mtp=True, user_depth=5)
+    assert eng_override.num_draft_tokens == 5
+
+    # Test none
+    eng_none = MockEngine(has_mtp=False, has_draft=False)
+    assert eng_none.has_mtp is False
+    assert eng_none.speculation_mode == "none"
+
+
+def test_server_models_endpoint():
+    """Tests FastAPI /v1/models response schema including speculation fields."""
+    from fastapi.testclient import TestClient
+    from tpm_mlx import server
+
+    client = TestClient(server.app)
+    response = client.get("/v1/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data
+    assert isinstance(data["data"], list)
+
+
+def test_engine_backend_detection():
+    """Tests that MLXEngine._detect_backend correctly identifies LLM vs VLM models."""
+    class DummyEngine(MLXEngine):
+        def __init__(self):
+            pass
+
+    dummy = DummyEngine()
+    
+    # VLMs
+    assert dummy._detect_backend({"model_type": "gemma4"}) == "vlm"
+    assert dummy._detect_backend({"model_type": "qwen2_vl"}) == "vlm"
+    assert dummy._detect_backend({"architectures": ["LlavaForConditionalGeneration"]}) == "vlm"
+    assert dummy._detect_backend({"vision_config": {"depth": 10}}) == "vlm"
+    
+    # Pure LLMs
+    assert dummy._detect_backend({"model_type": "llama", "architectures": ["LlamaForCausalLM"]}) == "llm"
+    assert dummy._detect_backend({"model_type": "mistral", "architectures": ["MistralForCausalLM"]}) == "llm"
+    assert dummy._detect_backend({"model_type": "deepseek_v3", "architectures": ["DeepseekV3ForCausalLM"]}) == "llm"
