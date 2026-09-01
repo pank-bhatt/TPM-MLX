@@ -6,6 +6,7 @@ import click
 import logging
 import uvicorn
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 # Set up logging before loading other modules
 logging.basicConfig(

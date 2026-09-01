@@ -1,0 +1,140 @@
+{
+  "lever_1_temperature": [
+    {
+      "tps": 23.79,
+      "tokens": 100,
+      "gen_time_s": 4.2,
+      "ttft_ms": 383.1,
+      "accepted_tokens": 43,
+      "draft_tokens_attempted": 57,
+      "acceptance_rate": 75.4,
+      "sample": "<think>\n</think>\n\n# Email Validation of course: \u90ae\u7bb1\u683c\u5f0f\u9a8c\u8bc1\u51fd\u6570\n\n```python\nimport re\n\nd",
+      "temperature": 0.0
+    },
+    {
+      "tps": 21.69,
+      "tokens": 100,
+      "gen_time_s": 4.61,
+      "ttft_ms": 485.8,
+      "accepted_tokens": 37,
+      "draft_tokens_attempted": 63,
+      "acceptance_rate": 58.7,
+      "sample": "<think>\n</think>\n\n# Email Validation of course: \u90ae\u7bb1\u683c\u5f0f\u9a8c\u8bc1\u51fd\u6570\n\n```python\nimport re\n\n\n",
+      "temperature": 0.2
+    },
+    {
+      "tps": 19.28,
+      "tokens": 100,
+      "gen_time_s": 5.19,
+      "ttft_ms": 608.2,
+      "accepted_tokens": 29,
+      "draft_tokens_attempted": 71,
+      "acceptance_rate": 40.8,
+      "sample": "<think>\n</think>\n\n# Email Validation of course: Validate Email Validation of Ema",
+      "temperature": 0.5
+    },
+    {
+      "tps": 18.55,
+      "tokens": 100,
+      "gen_time_s": 5.39,
+      "ttft_ms": 618.0,
+      "accepted_tokens": 29,
+      "draft_tokens_attempted": 71,
+      "acceptance_rate": 40.8,
+      "sample": "<think>\n</think>\n\n# Email Validation Function tocheck_email.py\n\n```python\nimport",
+      "temperature": 0.8
+    },
+    {
+      "tps": 17.5,
+      "tokens": 100,
+      "gen_time_s": 5.71,
+      "ttft_ms": 619.9,
+      "accepted_tokens": 24,
+      "draft_tokens_attempted": 76,
+      "acceptance_rate": 31.6,
+      "sample": "<think>\nThe user wants a Python function that validates email address format cor",
+      "temperature": 1.0
+    }
+  ],
+  "lever_2_domain_entropy": [
+    {
+      "tps": 23.36,
+      "tokens": 100,
+      "gen_time_s": 4.28,
+      "ttft_ms": 346.8,
+      "accepted_tokens": 44,
+      "draft_tokens_attempted": 57,
+      "acceptance_rate": 77.2,
+      "sample": "<think>\n</think>\n\n{\n{\n  \"name\": \"Sarah\",\n  \"age\": 29,\n  \"role\": \"Engineer\",\n  \"s",
+      "domain": "JSON Extraction (Ultra-Low Entropy)"
+    },
+    {
+      "tps": 22.26,
+      "tokens": 100,
+      "gen_time_s": 4.49,
+      "ttft_ms": 374.6,
+      "accepted_tokens": 40,
+      "draft_tokens_attempted": 60,
+      "acceptance_rate": 66.7,
+      "sample": "```python\ndef fibonacci(n: int) -> list[int]:\n    \"\"\"\n    Compute the Fibonacci ",
+      "domain": "Python Code (Low Entropy)"
+    },
+    {
+      "tps": 19.36,
+      "tokens": 100,
+      "gen_time_s": 5.16,
+      "ttft_ms": 336.8,
+      "accepted_tokens": 32,
+      "draft_tokens_attempted": 68,
+      "acceptance_rate": 47.1,
+      "sample": "1.  **Without KV Cache Mechanism**\n    -  *   -  How the role of K and V in atte",
+      "domain": "Technical QA (Medium Entropy)"
+    },
+    {
+      "tps": 20.63,
+      "tokens": 100,
+      "gen_time_s": 4.85,
+      "ttft_ms": 349.5,
+      "accepted_tokens": 37,
+      "draft_tokens_attempted": 63,
+      "acceptance_rate": 58.7,
+      "sample": "<think>\nThe user wants me to write the opening paragraph of a fantasy story abou",
+      "domain": "Creative Fiction (High Entropy)"
+    }
+  ],
+  "lever_3_speculation_depth": [
+    {
+      "tps": 18.21,
+      "tokens": 100,
+      "gen_time_s": 5.49,
+      "ttft_ms": 338.5,
+      "accepted_tokens": 28,
+      "draft_tokens_attempted": 72,
+      "acceptance_rate": 38.9,
+      "sample": "To understand the difference between **process concurrency**process concurrency*",
+      "depth": 1
+    },
+    {
+      "tps": 19.59,
+      "tokens": 100,
+      "gen_time_s": 5.1,
+      "ttft_ms": 338.1,
+      "accepted_tokens": 28,
+      "draft_tokens_attempted": 72,
+      "acceptance_rate": 38.9,
+      "sample": "To understand the difference between **process concurrency**process concurrency*",
+      "depth": 2
+    },
+    {
+      "tps": 18.04,
+      "tokens": 100,
+      "gen_time_s": 5.54,
+      "ttft_ms": 336.0,
+      "accepted_tokens": 28,
+      "draft_tokens_attempted": 72,
+      "acceptance_rate": 38.9,
+      "sample": "To understand the difference between **process concurrency**process concurrency*",
+      "depth": 3
+    }
+  ]
+}

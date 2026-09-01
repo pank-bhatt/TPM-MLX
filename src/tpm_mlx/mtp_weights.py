@@ -118,14 +118,18 @@ def extract_and_remap_mtp_weights(
                 detected_depths.add(0)
 
             # Map sub_keys
-            if sub_key in ("enorm.weight", "input_enorm.weight", "embed_norm.weight", "pre_fc_norm_embedding.weight"):
-                remapped[f"layers.{layer_idx}.enorm.weight"] = v
-            elif sub_key in ("hnorm.weight", "input_hnorm.weight", "hidden_norm.weight", "pre_fc_norm_hidden.weight"):
-                remapped[f"layers.{layer_idx}.hnorm.weight"] = v
-            elif sub_key in ("eh_proj.weight", "input_proj.weight", "fc.weight", "proj.weight"):
-                remapped[f"layers.{layer_idx}.proj.weight"] = v
-            elif sub_key in ("norm.weight", "final_norm.weight"):
-                remapped[f"layers.{layer_idx}.norm.weight"] = v
+            if sub_key.startswith(("enorm.", "input_enorm.", "embed_norm.", "pre_fc_norm_embedding.")):
+                sub_param = sub_key.split(".", 1)[1] if "." in sub_key else "weight"
+                remapped[f"layers.{layer_idx}.enorm.{sub_param}"] = v
+            elif sub_key.startswith(("hnorm.", "input_hnorm.", "hidden_norm.", "pre_fc_norm_hidden.")):
+                sub_param = sub_key.split(".", 1)[1] if "." in sub_key else "weight"
+                remapped[f"layers.{layer_idx}.hnorm.{sub_param}"] = v
+            elif sub_key.startswith(("eh_proj.", "input_proj.", "fc.", "proj.")):
+                sub_param = sub_key.split(".", 1)[1] if "." in sub_key else "weight"
+                remapped[f"layers.{layer_idx}.proj.{sub_param}"] = v
+            elif sub_key.startswith(("norm.", "final_norm.")):
+                sub_param = sub_key.split(".", 1)[1] if "." in sub_key else "weight"
+                remapped[f"layers.{layer_idx}.norm.{sub_param}"] = v
             else:
                 # Transformer block sub-layers
                 remapped[f"layers.{layer_idx}.block.{sub_key}"] = v
@@ -221,19 +225,27 @@ def load_mtp_head_from_dir(
     
     # Extract embed_tokens and lm_head from base_model
     embed_tokens = None
-    if hasattr(base_model, "model") and hasattr(base_model.model, "embed_tokens"):
-        embed_tokens = base_model.model.embed_tokens
-    elif hasattr(base_model, "embed_tokens"):
-        embed_tokens = base_model.embed_tokens
-    elif hasattr(base_model, "language_model") and hasattr(base_model.language_model.model, "embed_tokens"):
-        embed_tokens = base_model.language_model.model.embed_tokens
-        
+    for obj in [
+        base_model,
+        getattr(base_model, "model", None),
+        getattr(base_model, "language_model", None),
+        getattr(getattr(base_model, "language_model", None), "model", None),
+    ]:
+        if obj is not None and hasattr(obj, "embed_tokens"):
+            embed_tokens = getattr(obj, "embed_tokens")
+            break
+
     lm_head = None
-    if hasattr(base_model, "lm_head"):
-        lm_head = base_model.lm_head
-    elif hasattr(base_model, "language_model") and hasattr(base_model.language_model, "lm_head"):
-        lm_head = base_model.language_model.lm_head
-    elif embed_tokens is not None and hasattr(embed_tokens, "as_linear"):
+    for obj in [
+        base_model,
+        getattr(base_model, "lm_head", None),
+        getattr(base_model, "language_model", None),
+        getattr(base_model, "model", None),
+    ]:
+        if obj is not None and hasattr(obj, "lm_head"):
+            lm_head = getattr(obj, "lm_head")
+            break
+    if lm_head is None and embed_tokens is not None and hasattr(embed_tokens, "as_linear"):
         lm_head = embed_tokens.as_linear
         
     if embed_tokens is None or lm_head is None:
@@ -247,14 +259,15 @@ def load_mtp_head_from_dir(
     needs_linear_attn = any("linear_attn" in k or "conv1d" in k for k in mtp_weights)
     
     all_layers = []
-    if hasattr(base_model, "layers") and len(base_model.layers) > 0:
-        all_layers = base_model.layers
-    elif hasattr(base_model, "model") and hasattr(base_model.model, "layers") and len(base_model.model.layers) > 0:
-        all_layers = base_model.model.layers
-    elif hasattr(base_model, "language_model") and hasattr(base_model.language_model, "layers") and len(base_model.language_model.layers) > 0:
-        all_layers = base_model.language_model.layers
-    elif hasattr(base_model, "language_model") and hasattr(base_model.language_model, "model") and hasattr(base_model.language_model.model, "layers"):
-        all_layers = base_model.language_model.model.layers
+    for obj in [
+        base_model,
+        getattr(base_model, "model", None),
+        getattr(base_model, "language_model", None),
+        getattr(getattr(base_model, "language_model", None), "model", None),
+    ]:
+        if obj is not None and hasattr(obj, "layers") and len(getattr(obj, "layers", [])) > 0:
+            all_layers = getattr(obj, "layers")
+            break
 
     template_layer = None
     if needs_self_attn:
@@ -273,7 +286,18 @@ def load_mtp_head_from_dir(
 
     for i in range(depth):
         block = copy.deepcopy(template_layer) if template_layer is not None else None
-            
+        if block is not None:
+            for mod_name, mod in block.named_modules():
+                if isinstance(mod, nn.QuantizedLinear):
+                    scale_key = f"layers.{i}.block.{mod_name}.scales"
+                    weight_key = f"layers.{i}.block.{mod_name}.weight"
+                    if scale_key in mtp_weights and weight_key in mtp_weights:
+                        w_shape = mtp_weights[weight_key].shape
+                        s_shape = mtp_weights[scale_key].shape
+                        in_feat = w_shape[1] * (32 // mod.bits)
+                        actual_gs = in_feat // s_shape[1]
+                        mod.group_size = actual_gs
+
         layer = MTPLayer(
             hidden_size=hidden_size,
             rms_norm_eps=rms_norm_eps,
@@ -281,7 +305,15 @@ def load_mtp_head_from_dir(
         )
         
         if has_quant_proj:
-            layer.proj = nn.QuantizedLinear.from_linear(layer.proj, group_size=64, bits=4)
+            proj_scale_key = f"layers.{i}.proj.scales"
+            proj_w_key = f"layers.{i}.proj.weight"
+            actual_proj_gs = 64
+            if proj_scale_key in mtp_weights and proj_w_key in mtp_weights:
+                w_shape = mtp_weights[proj_w_key].shape
+                s_shape = mtp_weights[proj_scale_key].shape
+                in_feat = w_shape[1] * 8
+                actual_proj_gs = in_feat // s_shape[1]
+            layer.proj = nn.QuantizedLinear.from_linear(layer.proj, group_size=actual_proj_gs, bits=4)
             
         layers.append(layer)
         

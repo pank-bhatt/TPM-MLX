@@ -89,6 +89,7 @@ class MLXEngine:
         draft_model_path_or_id: Optional[str] = None,
         enable_mtp: bool = True,
         num_draft_tokens: Optional[int] = None,
+        backend: Optional[str] = None,
     ):
         self.model_path_or_id = model_path_or_id
         self.max_kv_size = max_kv_size
@@ -108,18 +109,16 @@ class MLXEngine:
         # Resolve config and apply dynamic patches
         self.config = self._load_and_patch_config()
         
-        # Detect backend: 'llm' or 'vlm'
-        self.backend = self._detect_backend(self.config)
-        logger.info(f"Auto-detected inference backend: '{self.backend.upper()}' for {model_path_or_id}")
-
         # Telemetry stats
         from tpm_mlx.speculation import SpeculationStats
         self.speculation_stats = SpeculationStats()
 
-        self.mtp_head = None
-        self.draft_model = None
-        self.draft_kind = "none"
-
+        if backend is not None and backend.lower() in ("llm", "vlm"):
+            self.backend = backend.lower()
+        else:
+            self.backend = self._detect_backend(self.config)
+        logger.info(f"Auto-detected inference backend: '{self.backend.upper()}' for {self.model_path_or_id}")
+        
         if self.backend == "vlm":
             self._init_vlm_backend()
         else:
@@ -139,7 +138,7 @@ class MLXEngine:
             return "vlm"
         if any("vision" in a or "vlm" in a or "visual" in a or "llava" in a or "pixtral" in a for a in archs):
             return "vlm"
-        if "vision_config" in config or "image_token_id" in config:
+        if "vision_config" in config:
             return "vlm"
         return "llm"
 
@@ -147,6 +146,10 @@ class MLXEngine:
         """Initializes mlx-vlm model, processor, and optional MTP drafter."""
         import mlx_vlm.utils
         from mlx_vlm.speculative import load_drafter
+        
+        self.draft_model = None
+        self.draft_kind = "none"
+        self.mtp_head = None
         
         self.model, self.processor = mlx_vlm.utils.load(self.model_path)
         self.tokenizer = getattr(self.processor, "tokenizer", self.processor)
@@ -168,6 +171,11 @@ class MLXEngine:
 
     def _init_llm_backend(self):
         """Initializes mlx-lm model, tokenizer, and native MTP heads."""
+        self.draft_model = None
+        self.draft_kind = "none"
+        self.processor = None
+        self.mtp_head = None
+        
         self.model, self.tokenizer = self._load_model_and_tokenizer()
         
         # Load MTP head if enabled
