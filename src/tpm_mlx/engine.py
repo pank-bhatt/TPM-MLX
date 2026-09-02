@@ -111,7 +111,7 @@ class MLXEngine:
         
         # Telemetry stats
         from tpm_mlx.speculation import SpeculationStats
-        self.speculation_stats = SpeculationStats()
+        self._speculation_stats = SpeculationStats()
 
         if backend is not None and backend.lower() in ("llm", "vlm"):
             self.backend = backend.lower()
@@ -123,6 +123,32 @@ class MLXEngine:
             self._init_vlm_backend()
         else:
             self._init_llm_backend()
+
+    @property
+    def speculation_stats(self) -> Any:
+        """Returns SpeculationStats dynamically synchronized with backend telemetry."""
+        if self.backend == "vlm" and getattr(self, "draft_model", None) is not None:
+            d = self.draft_model
+            total_drafted = int(getattr(d, "speculative_total_drafted", 0))
+            total_accepted = int(round(getattr(d, "speculative_total_accepted", 0.0)))
+            total_rounds = int(getattr(d, "speculative_total_rounds", 0))
+            
+            # If draft_lens or accept_lens are populated on draft_model, aggregate them
+            draft_lens = getattr(d, "draft_lens", None)
+            accept_lens = getattr(d, "accept_lens", None)
+            if draft_lens and sum(draft_lens) > total_drafted:
+                total_drafted = int(sum(draft_lens))
+            if accept_lens and sum(accept_lens) > total_accepted:
+                total_accepted = int(round(sum(accept_lens)))
+                
+            self._speculation_stats.draft_tokens_total = total_drafted
+            self._speculation_stats.accepted_tokens_total = total_accepted
+            self._speculation_stats.total_rounds = total_rounds
+        return self._speculation_stats
+
+    @speculation_stats.setter
+    def speculation_stats(self, val: Any):
+        self._speculation_stats = val
 
     def _detect_backend(self, config: Dict[str, Any]) -> str:
         """Auto-detects whether the model is a Multimodal VLM or Pure Text LLM."""

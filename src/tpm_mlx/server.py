@@ -428,8 +428,8 @@ async def chat_completions(req: ChatCompletionRequest):
                 prompt_tps = item.prompt_tps
                 peak_mem = item.peak_memory
                 
-                if completion_tokens_count == 1:
-                    ttft = (time.perf_counter() - start_time) * 1000.0  # ms
+                if ttft == 0.0 and (completion_tokens_count > 0 or bool(item.text)):
+                    ttft = max((time.perf_counter() - start_time) * 1000.0, 1.0)
                 
                 chunk = {
                     "id": chat_id,
@@ -498,8 +498,8 @@ async def chat_completions(req: ChatCompletionRequest):
         full_text = "".join(r.text for r in responses)
         last_resp = responses[-1]
         
-        # Calculate TTFT
-        ttft_ms = 0.0
+        # Calculate TTFT for non-streaming
+        ttft_ms = (last_resp.prompt_tokens / max(last_resp.prompt_tps, 1e-6) * 1000.0) if last_resp.prompt_tps > 0 else 1.0
         
         response_json = {
             "id": chat_id,
