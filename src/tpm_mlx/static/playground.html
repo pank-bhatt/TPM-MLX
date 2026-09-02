@@ -645,9 +645,38 @@
         <div class="section-title">Model Management</div>
         
         <div class="control-group">
-            <label for="model-select">Loaded Model</label>
+            <label for="model-select">Base Model</label>
             <select id="model-select">
                 <option value="" disabled selected>Loading models...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="draft-select">MTP / Draft Assistant</label>
+            <select id="draft-select">
+                <option value="__AUTO__">✨ Auto-Detect Companion (Recommended)</option>
+                <option value="__NONE__">🚫 None (Single-Token Baseline)</option>
+            </select>
+        </div>
+
+        <div class="control-group" id="custom-model-group" style="display: none;">
+            <label for="custom-model-input">Custom Model Path / HF ID</label>
+            <input type="text" id="custom-model-input" placeholder="e.g. mlx-community/Llama-3.2-3B-Instruct-4bit">
+        </div>
+
+        <div class="control-group" id="custom-draft-group" style="display: none;">
+            <label for="custom-draft-input">Custom Draft Model Path / HF ID</label>
+            <input type="text" id="custom-draft-input" placeholder="e.g. mlx-community/gemma-4-E4B-it-assistant-bf16">
+        </div>
+
+        <div class="control-group">
+            <label for="draft-tokens-select">Speculation Lookahead</label>
+            <select id="draft-tokens-select">
+                <option value="">Auto (Default)</option>
+                <option value="1">1 Draft Token</option>
+                <option value="2">2 Draft Tokens</option>
+                <option value="3">3 Draft Tokens</option>
+                <option value="4">4 Draft Tokens</option>
             </select>
         </div>
 
@@ -695,12 +724,15 @@
     <!-- Main Workspace -->
     <div class="workspace">
         <div class="header">
-            <div class="header-title" id="current-model-header">No Model Loaded</div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="header-title" id="current-model-header">No Model Loaded</div>
+                <div id="header-speculation-badge" style="display: none; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3);"></div>
+            </div>
         </div>
 
         <div class="chat-container" id="chat-container">
             <div class="message assistant">
-                Hello! Load a model from the sidebar to begin testing. TPM-MLX utilizes pre-allocated static KV caches and optimized zero-sync pipelines to achieve maximum tokens-per-second.
+                Hello! Load a model from the sidebar to begin testing. TPM-MLX utilizes pre-allocated static KV caches, native MTP heads, and optimized zero-sync pipelines to achieve maximum tokens-per-second.
             </div>
         </div>
 
@@ -720,10 +752,18 @@
     <script>
         const API_URL = ""; // Relative path to match hosted server
         let activeModel = "";
+        let activeDraftModel = null;
+        let cachedModelsList = [];
         let chatHistory = [];
 
         // DOM elements
         const modelSelect = document.getElementById("model-select");
+        const draftSelect = document.getElementById("draft-select");
+        const customModelGroup = document.getElementById("custom-model-group");
+        const customModelInput = document.getElementById("custom-model-input");
+        const customDraftGroup = document.getElementById("custom-draft-group");
+        const customDraftInput = document.getElementById("custom-draft-input");
+        const draftTokensSelect = document.getElementById("draft-tokens-select");
         const kvSizeInput = document.getElementById("kv-size-input");
         const loadModelBtn = document.getElementById("load-model-btn");
         const tempSlider = document.getElementById("temp-slider");
@@ -733,6 +773,7 @@
         const statusBadge = document.getElementById("status-badge");
         const statusText = document.getElementById("status-text");
         const currentModelHeader = document.getElementById("current-model-header");
+        const headerSpeculationBadge = document.getElementById("header-speculation-badge");
         const chatContainer = document.getElementById("chat-container");
         const userInput = document.getElementById("user-input");
         const sendBtn = document.getElementById("send-btn");
@@ -742,32 +783,144 @@
             tempVal.textContent = parseFloat(e.target.value).toFixed(1);
         });
 
+        // Toggle custom input fields
+        modelSelect.addEventListener("change", () => {
+            if (modelSelect.value === "__CUSTOM__") {
+                customModelGroup.style.display = "flex";
+            } else {
+                customModelGroup.style.display = "none";
+                autoSelectMatchingDraft(modelSelect.value);
+            }
+        });
+
+        draftSelect.addEventListener("change", () => {
+            if (draftSelect.value === "__CUSTOM__") {
+                customDraftGroup.style.display = "flex";
+            } else {
+                customDraftGroup.style.display = "none";
+            }
+        });
+
+        function autoSelectMatchingDraft(baseModelId) {
+            if (!baseModelId || baseModelId === "__CUSTOM__") return;
+            const lower = baseModelId.toLowerCase();
+            
+            // Auto suggest matching companion
+            if (draftSelect.value === "__AUTO__") {
+                return; // Server handles auto-pairing
+            }
+            
+            for (let i = 0; i < draftSelect.options.length; i++) {
+                const optVal = draftSelect.options[i].value;
+                const optLower = optVal.toLowerCase();
+                if (lower.includes("qwen3.8-27b") && optLower.includes("qwen3.8-27b-mtp")) {
+                    draftSelect.selectedIndex = i;
+                    return;
+                } else if (lower.includes("gemma-4-e4b") && optLower.includes("e4b-it-assistant")) {
+                    draftSelect.selectedIndex = i;
+                    return;
+                } else if (lower.includes("gemma-4-e2b") && optLower.includes("e2b-it-assistant")) {
+                    draftSelect.selectedIndex = i;
+                    return;
+                } else if (lower.includes("gemma-4-26b") && optLower.includes("26b-a4b-it-assistant")) {
+                    draftSelect.selectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftTokens, backend) {
+            currentModelHeader.textContent = modelName || "Select and Load a Model";
+            
+            if (modelName) {
+                headerSpeculationBadge.style.display = "inline-block";
+                if (specMode === "mtp" || hasMtp) {
+                    const tokensText = draftTokens ? `${draftTokens} Draft Tokens` : "Active";
+                    headerSpeculationBadge.textContent = `⚡ MTP Speculation (${tokensText}) [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.style.background = "rgba(16, 185, 129, 0.15)";
+                    headerSpeculationBadge.style.color = "#34d399";
+                    headerSpeculationBadge.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                } else if (specMode === "draft" && draftName) {
+                    headerSpeculationBadge.textContent = `⚡ Draft Speculation [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.style.background = "rgba(99, 102, 241, 0.15)";
+                    headerSpeculationBadge.style.color = "#a5b4fc";
+                    headerSpeculationBadge.style.borderColor = "rgba(99, 102, 241, 0.35)";
+                } else {
+                    headerSpeculationBadge.textContent = `Standard Decoding [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.style.background = "rgba(107, 114, 128, 0.15)";
+                    headerSpeculationBadge.style.color = "#9ca3af";
+                    headerSpeculationBadge.style.borderColor = "rgba(107, 114, 128, 0.25)";
+                }
+            } else {
+                headerSpeculationBadge.style.display = "none";
+            }
+        }
+
         // Initialize lists and fetch available models
         async function fetchModels() {
             try {
                 const resp = await fetch(`${API_URL}/v1/models`);
                 const data = await resp.json();
                 
+                cachedModelsList = data.data || [];
+                activeModel = data.active_model || "";
+                activeDraftModel = data.active_draft_model || null;
+                
+                // Clear and rebuild Base Models dropdown
                 modelSelect.innerHTML = "";
+                draftSelect.innerHTML = `
+                    <option value="__AUTO__">✨ Auto-Detect Companion (Recommended)</option>
+                    <option value="__NONE__">🚫 None (Single-Token Baseline)</option>
+                `;
+                
+                const baseOptGroup = document.createElement("optgroup");
+                baseOptGroup.label = "Cached Base Models";
+                
+                const draftOptGroup = document.createElement("optgroup");
+                draftOptGroup.label = "Available Draft / MTP Assistants";
+
                 let activeFound = false;
 
-                data.data.forEach(model => {
-                    const option = document.createElement("option");
-                    option.value = model.id;
-                    option.textContent = model.id + (model.active ? " (active)" : "");
-                    if (model.active) {
-                        option.selected = true;
-                        activeModel = model.id;
-                        activeFound = true;
-                        if (model.max_kv_size) {
-                            kvSizeInput.value = model.max_kv_size;
+                cachedModelsList.forEach(m => {
+                    const isDraft = m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp");
+                    
+                    if (!isDraft) {
+                        const opt = document.createElement("option");
+                        opt.value = m.id;
+                        opt.textContent = m.id + (m.active ? " (active)" : "");
+                        if (m.active) {
+                            opt.selected = true;
+                            activeFound = true;
+                            if (m.max_kv_size) kvSizeInput.value = m.max_kv_size;
                         }
+                        baseOptGroup.appendChild(opt);
+                    } else {
+                        const opt = document.createElement("option");
+                        opt.value = m.id;
+                        opt.textContent = m.id;
+                        if (activeDraftModel === m.id) {
+                            opt.selected = true;
+                        }
+                        draftOptGroup.appendChild(opt);
                     }
-                    modelSelect.appendChild(option);
                 });
 
+                // Custom option for base
+                const customBaseOpt = document.createElement("option");
+                customBaseOpt.value = "__CUSTOM__";
+                customBaseOpt.textContent = "✏️ Enter Custom Model HF ID...";
+                baseOptGroup.appendChild(customBaseOpt);
+                modelSelect.appendChild(baseOptGroup);
+
+                // Custom option for draft
+                const customDraftOpt = document.createElement("option");
+                customDraftOpt.value = "__CUSTOM__";
+                customDraftOpt.textContent = "✏️ Enter Custom Draft HF ID...";
+                draftOptGroup.appendChild(customDraftOpt);
+                draftSelect.appendChild(draftOptGroup);
+
                 if (activeFound) {
-                    currentModelHeader.textContent = activeModel;
+                    updateHeaderBadge(activeModel, activeDraftModel, data.speculation_mode, data.has_mtp, data.num_draft_tokens, data.backend);
                     userInput.disabled = false;
                     sendBtn.disabled = false;
                     userInput.placeholder = "Type a message...";
@@ -785,9 +938,38 @@
 
         // Load model event
         loadModelBtn.addEventListener("click", async () => {
-            const selectedModel = modelSelect.value;
+            let selectedModel = modelSelect.value;
+            if (selectedModel === "__CUSTOM__") {
+                selectedModel = customModelInput.value.trim();
+            }
+            if (!selectedModel) {
+                alert("Please select or enter a base model name.");
+                return;
+            }
+
+            let selectedDraft = draftSelect.value;
+            if (selectedDraft === "__CUSTOM__") {
+                selectedDraft = customDraftInput.value.trim();
+            } else if (selectedDraft === "__NONE__") {
+                selectedDraft = null;
+            } else if (selectedDraft === "__AUTO__") {
+                // Auto pairing logic
+                const lower = selectedModel.toLowerCase();
+                if (lower.includes("qwen3.8-27b") && !lower.includes("-mtp")) {
+                    selectedDraft = "mlx-community/Qwen3.8-27B-MTP-4bit";
+                } else if (lower.includes("gemma-4-e4b") && !lower.includes("assistant")) {
+                    selectedDraft = "mlx-community/gemma-4-E4B-it-assistant-bf16";
+                } else if (lower.includes("gemma-4-e2b") && !lower.includes("assistant")) {
+                    selectedDraft = "mlx-community/gemma-4-E2B-it-assistant-bf16";
+                } else if (lower.includes("gemma-4-26b") && !lower.includes("assistant")) {
+                    selectedDraft = "mlx-community/gemma-4-26B-A4B-it-assistant-bf16";
+                } else {
+                    selectedDraft = null;
+                }
+            }
+
             const kvSize = parseInt(kvSizeInput.value) || 4096;
-            if (!selectedModel) return;
+            const draftTokensVal = draftTokensSelect.value ? parseInt(draftTokensSelect.value) : null;
 
             loadModelBtn.disabled = true;
             loadModelBtn.textContent = "Loading Model...";
@@ -798,28 +980,37 @@
                 const resp = await fetch(`${API_URL}/v1/load_model`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ model: selectedModel, max_kv_size: kvSize })
+                    body: JSON.stringify({ 
+                        model: selectedModel, 
+                        draft_model: selectedDraft,
+                        max_kv_size: kvSize,
+                        num_draft_tokens: draftTokensVal,
+                        enable_mtp: true,
+                    })
                 });
                 const res = await resp.json();
                 
                 if (resp.ok) {
-                    activeModel = selectedModel;
-                    currentModelHeader.textContent = activeModel;
+                    activeModel = res.model || selectedModel;
+                    activeDraftModel = res.draft_model;
+                    updateHeaderBadge(activeModel, activeDraftModel, res.speculation_mode, res.has_mtp, res.num_draft_tokens, res.backend);
+                    
                     statusText.textContent = "Model Loaded";
                     statusBadge.querySelector(".status-dot").style.backgroundColor = "#10b981"; // Green
                     userInput.disabled = false;
                     sendBtn.disabled = false;
                     userInput.placeholder = "Type a message...";
                     
-                    // Clear chat
+                    // Clear chat with confirmation
+                    const specInfo = res.speculation_mode === "mtp" ? `with <strong>MTP Acceleration (${res.num_draft_tokens || 3} tokens)</strong>` : (res.draft_model ? `with draft assistant <strong>${res.draft_model}</strong>` : "in standard single-token mode");
                     chatContainer.innerHTML = `
                         <div class="message assistant">
-                            Successfully loaded <strong>${activeModel}</strong>. Ready for optimized inference!
+                            Successfully loaded <strong>${activeModel}</strong> ${specInfo}. Ready for optimized Apple Silicon inference!
                         </div>
                     `;
                     chatHistory = [];
                 } else {
-                    alert("Error loading model: " + res.detail);
+                    alert("Error loading model: " + (res.detail || JSON.stringify(res)));
                     statusText.textContent = "Load Failed";
                     statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
                 }
