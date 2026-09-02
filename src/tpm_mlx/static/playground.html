@@ -439,31 +439,52 @@
         /* Metrics Display */
         .metrics-bar {
             display: flex;
-            gap: 16px;
+            flex-wrap: wrap;
+            gap: 8px 10px;
             margin-top: 14px;
             padding-top: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 11px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 11.5px;
             font-weight: 600;
-            text-transform: uppercase;
             color: var(--text-secondary);
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
 
         .metric {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: rgba(255, 255, 255, 0.02);
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.03);
             padding: 4px 10px;
             border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             position: relative;
             cursor: help;
+            transition: all 0.2s ease;
+        }
+
+        .metric:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .metric-icon {
+            font-size: 12px;
         }
 
         .metric-val {
-            color: var(--secondary-accent);
+            color: #38bdf8;
+            font-weight: 700;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .metric-accent {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .metric-accent .metric-val {
+            color: #34d399;
         }
 
         /* Metric Tooltips */
@@ -1375,14 +1396,24 @@
             // Prepare history payload
             chatHistory.push({ role: "user", content: userText });
 
-            // Assistant bubble loader
+            // Assistant bubble container
             const assistantMsgDiv = document.createElement("div");
             assistantMsgDiv.className = "message assistant";
+            
+            const contentDiv = document.createElement("div");
+            contentDiv.className = "message-body";
             
             const loaderDiv = document.createElement("div");
             loaderDiv.className = "typing-loader";
             loaderDiv.innerHTML = "<span></span><span></span><span></span>";
-            assistantMsgDiv.appendChild(loaderDiv);
+            contentDiv.appendChild(loaderDiv);
+            
+            const metricsDiv = document.createElement("div");
+            metricsDiv.className = "metrics-bar";
+            metricsDiv.style.display = "none";
+            
+            assistantMsgDiv.appendChild(contentDiv);
+            assistantMsgDiv.appendChild(metricsDiv);
             chatContainer.appendChild(assistantMsgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -1397,6 +1428,7 @@
             };
 
             let assistantText = "";
+            let metricsRendered = false;
             
             try {
                 const response = await fetch(`${API_URL}/v1/chat/completions`, {
@@ -1410,7 +1442,7 @@
                     throw new Error(errObj.detail || "Server error");
                 }
 
-                assistantMsgDiv.innerHTML = ""; // Clear loader
+                contentDiv.innerHTML = ""; // Clear loader
                 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
@@ -1436,21 +1468,61 @@
                             
                             if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content) {
                                 assistantText += chunk.choices[0].delta.content;
-                                assistantMsgDiv.innerHTML = formatMessageHtml(assistantText);
+                                contentDiv.innerHTML = formatMessageHtml(assistantText);
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                             
                             // Render final stats when available
-                            if (chunk.tpm_metrics) {
+                            if (chunk.tpm_metrics && !metricsRendered) {
+                                metricsRendered = true;
                                 const metrics = chunk.tpm_metrics;
-                                const metricsDiv = document.createElement("div");
-                                metricsDiv.className = "metrics-bar";
+                                const usage = chunk.usage || {};
+                                const promptTokens = usage.prompt_tokens || metrics.prompt_tokens || 0;
+                                const genTokens = usage.completion_tokens || metrics.generation_tokens || 0;
+                                
+                                let specBadge = "";
+                                if (metrics.speculation_mode && metrics.speculation_mode !== "none") {
+                                    const accPercent = (metrics.acceptance_rate * 100).toFixed(1);
+                                    specBadge = `
+                                        <div class="metric metric-accent" data-tooltip="Speculative Decoding (${metrics.speculation_mode.toUpperCase()}) Token Acceptance Rate">
+                                            <span class="metric-icon">🎯</span>
+                                            <span>Speculation:</span>
+                                            <span class="metric-val">${metrics.speculation_mode.toUpperCase()} (${accPercent}% acc)</span>
+                                        </div>
+                                    `;
+                                }
+                                
                                 metricsDiv.innerHTML = `
-                                    <div class="metric" data-tooltip="Tokens generated per second during the response generation phase.">Throughput: <span class="metric-val">${metrics.tps} t/s</span></div>
-                                    <div class="metric" data-tooltip="Time-To-First-Token: Latency from receiving prompt to emitting the first token.">TTFT: <span class="metric-val">${metrics.ttft_ms} ms</span></div>
-                                    <div class="metric" data-tooltip="Tokens processed per second during prompt ingestion.">Prompt: <span class="metric-val">${metrics.prompt_tps} t/s</span></div>
+                                    <div class="metric" data-tooltip="Generation Throughput (tokens generated per second during response)">
+                                        <span class="metric-icon">⚡</span>
+                                        <span>Speed:</span>
+                                        <span class="metric-val">${metrics.tps} tok/s</span>
+                                    </div>
+                                    <div class="metric" data-tooltip="Time-To-First-Token: Latency from request to emitting the first token">
+                                        <span class="metric-icon">⏱️</span>
+                                        <span>TTFT:</span>
+                                        <span class="metric-val">${metrics.ttft_ms} ms</span>
+                                    </div>
+                                    <div class="metric" data-tooltip="Prompt Ingestion Speed & Token Length">
+                                        <span class="metric-icon">📥</span>
+                                        <span>Prompt:</span>
+                                        <span class="metric-val">${promptTokens ? promptTokens + ' tok @ ' : ''}${metrics.prompt_tps} tok/s</span>
+                                    </div>
+                                    ${genTokens ? `
+                                    <div class="metric" data-tooltip="Total Output Tokens Generated">
+                                        <span class="metric-icon">📝</span>
+                                        <span>Output:</span>
+                                        <span class="metric-val">${genTokens} tokens</span>
+                                    </div>` : ''}
+                                    ${specBadge}
+                                    ${metrics.peak_memory_gb ? `
+                                    <div class="metric" data-tooltip="Peak Unified Memory (RAM+VRAM) on Apple Silicon">
+                                        <span class="metric-icon">💾</span>
+                                        <span>Memory:</span>
+                                        <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+                                    </div>` : ''}
                                 `;
-                                assistantMsgDiv.appendChild(metricsDiv);
+                                metricsDiv.style.display = "flex";
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                         } catch (e) {
@@ -1464,7 +1536,7 @@
 
             } catch (err) {
                 console.error("Inference Error:", err);
-                assistantMsgDiv.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
+                contentDiv.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
             } finally {
                 userInput.disabled = false;
                 sendBtn.disabled = false;

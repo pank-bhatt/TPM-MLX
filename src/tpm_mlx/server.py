@@ -378,10 +378,46 @@ async def chat_completions(req: ChatCompletionRequest):
             ttft = 0.0
             start_time = time.perf_counter()
             
+            metrics_sent = False
+            
             while True:
                 item = await queue.get()
                 if item is None:
+                    # Finalize stream and emit metrics chunk if not already sent
+                    if not metrics_sent and completion_tokens_count > 0:
+                        final_chunk = {
+                            "id": chat_id,
+                            "object": "chat.completion.chunk",
+                            "created": created_time,
+                            "model": current_model_id,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {},
+                                    "finish_reason": "stop"
+                                }
+                            ],
+                            "usage": {
+                                "prompt_tokens": prompt_tokens_count,
+                                "completion_tokens": completion_tokens_count,
+                                "total_tokens": prompt_tokens_count + completion_tokens_count
+                            },
+                            "tpm_metrics": {
+                                "tps": round(generation_tps, 2),
+                                "ttft_ms": round(ttft, 2),
+                                "prompt_tps": round(prompt_tps, 2),
+                                "peak_memory_gb": round(peak_mem, 2),
+                                "prompt_tokens": prompt_tokens_count,
+                                "generation_tokens": completion_tokens_count,
+                                "speculation_mode": current_engine.speculation_mode if current_engine else "none",
+                                "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
+                                "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
+                                "accepted_tokens_total": current_engine.speculation_stats.accepted_tokens_total if current_engine else 0,
+                            }
+                        }
+                        yield f"data: {json.dumps(final_chunk)}\n\n"
                     break
+                    
                 if isinstance(item, Exception):
                     yield f"data: {{\"error\": \"{str(item)}\"}}\n\n"
                     break
@@ -411,6 +447,7 @@ async def chat_completions(req: ChatCompletionRequest):
                 
                 # If it is the final token, append metrics and usage metadata
                 if item.finish_reason is not None:
+                    metrics_sent = True
                     chunk["usage"] = {
                         "prompt_tokens": prompt_tokens_count,
                         "completion_tokens": completion_tokens_count,
@@ -421,6 +458,8 @@ async def chat_completions(req: ChatCompletionRequest):
                         "ttft_ms": round(ttft, 2),
                         "prompt_tps": round(prompt_tps, 2),
                         "peak_memory_gb": round(peak_mem, 2),
+                        "prompt_tokens": prompt_tokens_count,
+                        "generation_tokens": completion_tokens_count,
                         "speculation_mode": current_engine.speculation_mode if current_engine else "none",
                         "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
                         "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
