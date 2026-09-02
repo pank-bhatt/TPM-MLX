@@ -131,10 +131,26 @@ async def _load_engine(
         except Exception:
             pass
             
+        # Clean up existing engine and release Metal GPU buffers before loading new model
+        old_engine = engine
+        engine = None
+        if old_engine is not None:
+            try:
+                del old_engine.model
+                del old_engine.processor
+                del old_engine.drafter
+                del old_engine.tokenizer
+            except Exception:
+                pass
+            del old_engine
+            
         def init_engine():
             import gc, mlx.core as mx
-            mx.clear_cache()
             gc.collect()
+            mx.clear_cache()
+            if hasattr(mx, "metal"):
+                mx.metal.clear_cache()
+                
             eng = MLXEngine(
                 model_path_or_id=model_id, 
                 max_kv_size=max_kv_size,
@@ -142,6 +158,12 @@ async def _load_engine(
                 enable_mtp=enable_mtp,
                 num_draft_tokens=num_draft_tokens,
             )
+            
+            gc.collect()
+            mx.clear_cache()
+            if hasattr(mx, "metal"):
+                mx.metal.clear_cache()
+                
             return eng
             
         loop = asyncio.get_running_loop()
