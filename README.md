@@ -59,8 +59,8 @@
 
 ### Quick Setup
 ```bash
-git clone https://github.com/yourusername/tpm-mlx.git
-cd tpm-mlx
+git clone https://github.com/pank-bhatt/TPM-MLX.git
+cd TPM-MLX
 uv pip install -e .
 ```
 
