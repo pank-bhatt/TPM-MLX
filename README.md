@@ -32,6 +32,17 @@
 * Real-time streaming state-machine parser for `<think>...</think>` and `<|channel>thought...<channel|>` tags.
 * Filters reasoning by default (`--no-reasoning`) for immediate answers, or normalizes it for clean rendering in Web UIs and terminal clients.
 
+### 5. 🎨 Native Apple Silicon Image Generation & Editing
+* **Flow Matching Diffusion Engine (`MLXImageEngine`):** Native generation on Apple Silicon powered by **FLUX.2 Klein (9B 4-bit / 4B)**, **Z-Image Turbo (8-bit)**, and 2-bit ternary **Bonsai 4B**.
+* **OpenAI-Compatible `/v1/images/generations` & `/v1/images/edits`:** Text-to-image and instruction-based image editing with real-time isolated telemetry (`mx.reset_peak_memory()`).
+* **Canvas Resolution & Aspect Ratio Selector:** Direct UI presets for `1024x1024` (Native Studio HD), `16:9`, `9:16`, `4:3`, `3:4`, and draft `512x512` with automatic prompt resolution tag extraction.
+* **Direct Mode & Configurable AI Visual Director:** Toggle between local prompt distillation (cinematography enrichment) and zero-overhead Direct Mode (`auto_expand: false`, saving ~25% turnaround time).
+
+### 6. 🌲 Native Ternary Bonsai 2 27B Support (`prism_hadamard_qwen35`)
+* **Hardware-Accelerated Hadamard Transform:** Native Apple Silicon Metal Fast Walsh-Hadamard Transform (`fwht`) and 2-bit `Packed` quantized layers.
+* **27B Intelligence in ~8.6 GB VRAM:** Full 27B-class reasoning, coding, and multimodal vision at **20.8 TPS** on consumer Macs.
+* **27B AI Visual Director:** Unlocks pairing a full 27-billion parameter multimodal director with FLUX.2 or Z-Image in under 30 GB total VRAM.
+
 ---
 
 ## 📊 Local Benchmarks (Apple Silicon Metal GPU)
@@ -45,8 +56,21 @@
 | **Qwen 2.5 1.5B** | 1.5B Dense Edge | 4-bit | Standard Autoregressive | 213.15 TPS | **213.15 TPS** | Instant Edge Inference |
 | **Gemma 3 1B IT** | 1B Dense Edge | 4-bit | Standard Autoregressive | 247.88 TPS | **247.88 TPS** | Ultra-Fast Edge |
 
+### 🎨 Verified & Supported Image Generation Models
+
+TPM-MLX integrates native Apple Silicon flow-matching diffusion backends (`MLXImageEngine`). The table below compares the 3 supported models benchmarked on an Apple Silicon Mac (M4 Pro, 64GB) on an identical standardized prompt:
+
+> *"A cinematic photograph of an ancient stone temple nestled in a misty bamboo forest at dawn, rays of golden sunlight piercing through the canopy, moss-covered statues, photorealistic 8k"* (512×512, 4 steps, seed=42)
+
+| Model | Architecture | Quantization | Disk Size | Load Time | Response Time | Step Rate | Peak VRAM | Native Editing | Primary Strength |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Bonsai 4B** | Flow-Matching | 2-bit Ternary | **3.62 GB** | 2.29s | **13.18s** | **3.30s/step** | **3.42 GB** | ❌ | **Extreme Efficiency:** Lowest disk & RAM footprint, runs easily on 8GB/16GB Macs. |
+| **FLUX.2 Klein 9B** | Rectified Flow | 4-bit Affine | 8.89 GB | **0.75s** | 15.84s | 3.96s/step | 6.64 GB | **✅ Yes** | **Studio Photorealism:** Best lighting/textures and exclusive instruction editing (`/v1/images/edits`). |
+| **Z-Image Turbo** | Flow-Matching | 8-bit Affine | 11.05 GB | 1.53s | 14.09s | 3.52s/step | 11.02 GB | ❌ | **High-Precision Detail:** 8-bit weights, superior sign/text rendering, sharp geometry. |
+
 > [!TIP]
-> View the complete 13-model benchmark report and hardware performance analysis in [BENCHMARKS.md](BENCHMARKS.md).
+> All three models feature distilled 4-step sampling, allowing complete text-to-image generation in under 16 seconds directly on Apple Silicon without external cloud dependencies.
+> View the complete 13-model LLM benchmark report and hardware performance analysis in [BENCHMARKS.md](BENCHMARKS.md).
 
 ---
 
@@ -77,7 +101,13 @@ uv run tpm serve --model mlx-community/Qwen2.5-1.5B-Instruct-4bit --port 2505
 uv run tpm serve --model mlx-community/Qwen3.8-27B-4bit --draft-model mlx-community/Qwen3.8-27B-MTP-4bit --port 2505
 
 # Gemma 4 with official MTP assistant drafter:
-uv run tpm serve --model mlx-community/gemma-4-e4b-it-4bit --draft-model mlx-community/gemma-4-E4B-it-assistant-bf16 --port 2505
+uv run tpm serve --model mlx-community/gemma-4-e2b-it-4bit --draft-model mlx-community/gemma-4-E2B-it-assistant-bf16 --port 2505
+
+# 27B Ternary Bonsai 2 paired with Z-Image Turbo:
+uv run tpm serve --model prism-ml/Ternary-Bonsai-2-27B-mlx-2bit --image-model justintime47/Z-Image-Turbo-MLX-Serve-8bit --port 2505
+
+# Pure Image Generation (Minimal VRAM / 0 MB text model):
+uv run tpm serve --image-model mlx-community/flux2-klein-9b-4bit --no-llm --port 2505
 ```
 Open **`http://localhost:2505`** in your browser for the Web Playground.
 
@@ -88,7 +118,16 @@ uv run tpm chat --model mlx-community/Qwen3.8-27B-4bit --draft-model mlx-communi
 * Use `--reasoning` to display internal thought chains.
 * Type `/exit` or `/quit` to close.
 
-### 3. Run Benchmarks
+### 3. Generate Images via CLI
+```bash
+# Studio 1024x1024 generation with FLUX.2 Klein 9B:
+uv run tpm generate-image --model mlx-community/flux2-klein-9b-4bit --prompt "A serene Japanese zen garden at dawn" --size 1024x1024
+
+# Fast typography & composition with Z-Image-Turbo:
+uv run tpm generate-image --model justintime47/Z-Image-Turbo-MLX-Serve-8bit --prompt "A cozy retro bookstore neon sign reading 'MLX CAFE'" --size 512x512
+```
+
+### 4. Run Benchmarks
 ```bash
 # Single Model Benchmark:
 uv run python benchmarks/benchmark.py --model "mlx-community/Qwen3.8-27B-4bit" --draft-model "mlx-community/Qwen3.8-27B-MTP-4bit"
@@ -140,6 +179,33 @@ curl -X POST http://localhost:2505/v1/chat/completions \
 curl http://localhost:2505/v1/models
 ```
 Returns active model info, `backend` (`"llm"` or `"vlm"`), `speculation_mode` (`"mtp"`, `"draft"`, or `"none"`), and `has_mtp`.
+
+---
+
+### `/v1/images/generations` (POST)
+OpenAI-compatible text-to-image endpoint supporting custom canvas resolutions, steps, seeds, and LLM context distillation:
+```bash
+curl -X POST http://localhost:2505/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "justintime47/Z-Image-Turbo-MLX-Serve-8bit",
+    "prompt": "A futuristic cyberpunk noodle bar with glowing neon signs and rain-slicked asphalt",
+    "size": "1024x1024",
+    "steps": 4
+  }'
+```
+
+### `/v1/images/edits` (POST)
+Instruction-based image editing modifying existing reference images via natural language:
+```bash
+curl -X POST http://localhost:2505/v1/images/edits \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mlx-community/flux2-klein-9b-4bit",
+    "image": "photo.png",
+    "prompt": "Change the background to a sunset on a tropical beach with palm trees"
+  }'
+```
 
 ---
 

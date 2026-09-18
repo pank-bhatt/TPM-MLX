@@ -8,6 +8,10 @@ import uvicorn
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+from tpm_mlx.utils import install_safe_streams
+
+install_safe_streams()
+
 # Set up logging before loading other modules
 logging.basicConfig(
     level=logging.INFO,
@@ -32,19 +36,39 @@ def main():
 @click.option("--mtp/--no-mtp", default=True, help="Toggle Multi-Token Prediction (MTP) self-speculation (default: True)")
 @click.option("--num-draft-tokens", type=int, default=None, help="Number of speculative tokens to draft per step")
 @click.option("--reasoning/--no-reasoning", default=False, help="Toggle whether the server outputs <think> blocks by default (default: False)")
-def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool):
+@click.option("--image-model", type=str, default=None, help="Optional image generation model to preload (default: None)")
+@click.option("--no-llm", is_flag=True, default=False, help="Run without loading a text LLM (pure image generation / minimal VRAM mode)")
+def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool, image_model: Optional[str], no_llm: bool):
     """Starts the FastAPI OpenAI-compatible server and Web Playground."""
     logger.info(f"Starting TPM-MLX REST server on http://{host}:{port}/")
     
     # Store settings in environment variables for server startup loading
-    os.environ["TPM_DEFAULT_MODEL"] = model
-    if draft_model:
-        os.environ["TPM_DEFAULT_DRAFT_MODEL"] = draft_model
+    if no_llm or (model and model.lower() in ("none", "null")):
+        os.environ["TPM_DEFAULT_MODEL"] = "none"
+        os.environ.pop("TPM_DEFAULT_DRAFT_MODEL", None)
+    else:
+        os.environ["TPM_DEFAULT_MODEL"] = model
+        if draft_model:
+            os.environ["TPM_DEFAULT_DRAFT_MODEL"] = draft_model
+        elif "gemma-4-e2b" in model.lower():
+            os.environ["TPM_DEFAULT_DRAFT_MODEL"] = "mlx-community/gemma-4-E2B-it-assistant-bf16"
+        else:
+            os.environ.pop("TPM_DEFAULT_DRAFT_MODEL", None)
+
     os.environ["TPM_MAX_KV_SIZE"] = str(max_kv_size)
     os.environ["TPM_ENABLE_MTP"] = str(mtp)
+
     if num_draft_tokens is not None:
         os.environ["TPM_NUM_DRAFT_TOKENS"] = str(num_draft_tokens)
+    else:
+        os.environ.pop("TPM_NUM_DRAFT_TOKENS", None)
+
     os.environ["TPM_DEFAULT_REASONING"] = str(reasoning)
+
+    if image_model:
+        os.environ["TPM_DEFAULT_IMAGE_MODEL"] = image_model
+    else:
+        os.environ.pop("TPM_DEFAULT_IMAGE_MODEL", None)
     
     # Run Uvicorn ASGI server
     uvicorn.run("tpm_mlx.server:app", host=host, port=port, reload=False)
@@ -234,6 +258,24 @@ def download(model: str):
     except Exception as e:
         click.echo(click.style(f"Download failed: {e}", fg="red"), err=True)
         sys.exit(1)
+
+
+@main.command(name="generate-image")
+@click.option("--prompt", "-p", type=str, required=True, help="Text description of the image to generate")
+@click.option("--model", "-m", type=str, default="flux2-klein-4b", help="Image model path or ID (default: flux2-klein-4b)")
+@click.option("--output", "-o", type=str, default="output.png", help="Output PNG file path (default: output.png)")
+@click.option("--size", "-s", type=str, default="512x512", help="Image size (e.g. 512x512, 1024x1024, 16:9)")
+@click.option("--steps", type=int, default=4, help="Denoising flow steps (default: 4)")
+@click.option("--seed", type=int, default=None, help="Deterministic random seed")
+def generate_image_cli(prompt: str, model: str, output: str, size: str, steps: int, seed: Optional[int]):
+    """Generates an image from a text prompt using Apple Silicon MLX."""
+    from tpm_mlx.image_engine import MLXImageEngine
+    click.echo(click.style(f"Loading image model: {model}...", fg="cyan"))
+    engine = MLXImageEngine(model_path_or_id=model)
+    click.echo(click.style(f"Generating image ({size}, {steps} steps) for: '{prompt}'...", fg="yellow"))
+    res = engine.generate(prompt=prompt, size=size, steps=steps, seed=seed, output_path=output)
+    click.echo(click.style(f"Success! Image saved to {output}", fg="green", bold=True))
+    click.echo(f"Latency: {res.metrics.generation_time_s}s ({res.metrics.step_time_s}s/step) | Peak VRAM: {res.metrics.peak_memory_gb} GB")
 
 
 if __name__ == "__main__":

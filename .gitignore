@@ -64,3 +64,25 @@ db.sqlite3-journal
 
 # Benchmark reports
 benchmarks/perf_report*.md
+
+# Generated media assets (do not commit binary outputs)
+src/tpm_mlx/static/images/**
+!src/tpm_mlx/static/images/.gitkeep
+src/tpm_mlx/static/videos/**
+!src/tpm_mlx/static/videos/.gitkeep
+
+
+# Local internal plans and notes (never commit to public repo)
+docs/
+*_plan*.md
+
+# Environment and secrets (never commit tokens)
+.env
+.env.*
+!.env.example
+
+# IDE configurations
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

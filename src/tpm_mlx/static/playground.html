@@ -522,6 +522,62 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* Generated Image Card */
+        .image-result-card {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+            max-width: 520px;
+        }
+
+        .generated-image {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: block;
+        }
+
+        .revised-prompt-tag {
+            font-size: 11.5px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #38bdf8;
+            padding: 8px 12px;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .image-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .img-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .img-action-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+
         /* Code block styling */
         pre {
             background: rgba(0, 0, 0, 0.3) !important;
@@ -570,8 +626,103 @@
             font-size: 15px;
             outline: none;
             height: 48px;
-            padding-right: 50px;
+            padding-right: 104px;
             line-height: 1.5;
+        }
+
+        .upload-btn {
+            position: absolute;
+            right: 58px;
+            bottom: 12px;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .upload-btn:hover:not(:disabled) {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary-accent);
+            color: white;
+            transform: scale(1.03);
+        }
+
+        .upload-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .attached-image-preview {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            border-radius: 10px;
+            padding: 6px 12px;
+            margin-bottom: 8px;
+            gap: 10px;
+            width: fit-content;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .attached-image-thumb {
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .attached-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .attached-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #818cf8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .attached-name {
+            font-size: 12px;
+            color: var(--text-primary);
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .attached-close-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 4px;
+        }
+
+        .attached-close-btn:hover {
+            background: rgba(239, 68, 68, 0.35);
+            color: #f87171;
         }
 
         .send-btn {
@@ -708,7 +859,36 @@
 
         <button class="load-btn" id="load-model-btn">Load Model</button>
 
-        <div class="section-title">Parameters</div>
+        <div id="image-model-notice" style="display: none; margin-top: 14px; padding: 10px 12px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; font-size: 11.5px; color: #d8b4fe; line-height: 1.45;">
+            🎨 <b>Image Model Selected:</b> KV Cache, MTP Speculation & Reasoning tokens are bypassed for diffusion flow matching.
+        </div>
+
+        <div class="control-group" id="image-resolution-container" style="display: none; margin-top: 12px;">
+            <label for="image-resolution-select">Image Resolution & Canvas</label>
+            <select id="image-resolution-select">
+                <option value="1024x1024" selected>1024×1024 (1:1) — Native Studio HD (Recommended)</option>
+                <option value="1024x576">1024×576 (16:9) — Cinematic Landscape</option>
+                <option value="576x1024">576×1024 (9:16) — Mobile Portrait</option>
+                <option value="1024x768">1024×768 (4:3) — Standard Landscape</option>
+                <option value="768x1024">768×1024 (3:4) — Editorial Portrait</option>
+                <option value="512x512">512×512 (1:1) — Fast Draft Square</option>
+                <option value="512x768">512×768 (2:3) — Fast Draft Portrait</option>
+            </select>
+        </div>
+
+        <div class="control-group" id="image-director-container" style="display: none; margin-top: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label for="auto-expand-toggle" style="margin-bottom: 0; cursor: pointer; font-weight: 500;">
+                    <span>🪄 AI Visual Director</span>
+                </label>
+                <input type="checkbox" id="auto-expand-toggle" checked style="width: 17px; height: 17px; cursor: pointer; accent-color: var(--primary);" />
+            </div>
+            <div id="director-status-desc" style="font-size: 11px; color: var(--text-secondary); margin-top: 5px; line-height: 1.4;">
+                Enriches short prompts with cinematography details. Toggle OFF for <b>Direct Mode</b> (minimal VRAM & max speed).
+            </div>
+        </div>
+
+        <div class="section-title" id="parameters-section-title">Parameters</div>
 
         <div class="control-group">
             <div class="range-value">
@@ -726,8 +906,11 @@
         </div>
 
         <div class="control-group">
-            <div class="toggle-container" id="reasoning-toggle-container">
-                <label for="reasoning-checkbox">Reasoning Mode</label>
+            <div class="toggle-container" id="reasoning-toggle-container" title="Click to toggle internal reasoning thoughts (<think> blocks)">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="toggle-label" style="font-size: 13px; font-weight: 500; color: var(--text-primary); user-select: none;">Reasoning Mode</span>
+                    <span id="reasoning-state-badge" style="font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); user-select: none;">ON</span>
+                </div>
                 <label class="switch">
                     <input type="checkbox" id="reasoning-checkbox" checked>
                     <span class="slider"></span>
@@ -758,8 +941,22 @@
         </div>
 
         <div class="input-container">
+            <div id="attached-image-container" class="attached-image-preview" style="display: none;">
+                <img id="attached-image-thumb" class="attached-image-thumb" src="" alt="Reference">
+                <div class="attached-info">
+                    <span class="attached-label">🖼️ Reference Image</span>
+                    <span id="attached-image-name" class="attached-name">image.png</span>
+                </div>
+                <button type="button" class="attached-close-btn" onclick="clearAttachedReferenceImage()" title="Remove reference image">✕</button>
+            </div>
             <div class="input-wrapper">
-                <textarea id="user-input" placeholder="Type a message... (Press Enter to send, Shift+Enter for new line)" disabled></textarea>
+                <input type="file" id="image-upload-input" accept="image/png, image/jpeg, image/webp" style="display: none;">
+                <button type="button" class="upload-btn" id="upload-btn" title="Upload an image to modify or use as reference" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>
+                </button>
+                <textarea id="user-input" placeholder="Type a message, or /image <prompt> to generate an image... (Enter to send, Shift+Enter for newline)" disabled></textarea>
                 <button class="send-btn" id="send-btn" disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -798,6 +995,106 @@
         const chatContainer = document.getElementById("chat-container");
         const userInput = document.getElementById("user-input");
         const sendBtn = document.getElementById("send-btn");
+        const uploadBtn = document.getElementById("upload-btn");
+        const imageUploadInput = document.getElementById("image-upload-input");
+        const attachedImageContainer = document.getElementById("attached-image-container");
+        const attachedImageThumb = document.getElementById("attached-image-thumb");
+        const attachedImageName = document.getElementById("attached-image-name");
+        let attachedReferenceImageUrl = null;
+
+        function copyImageLink(btn, relUrl) {
+            const fullUrl = window.location.origin + relUrl;
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                const origHtml = btn.innerHTML;
+                btn.innerHTML = "✅ Link Copied!";
+                btn.style.color = "var(--primary)";
+                btn.style.borderColor = "var(--primary)";
+                setTimeout(() => {
+                    btn.innerHTML = origHtml;
+                    btn.style.color = "";
+                    btn.style.borderColor = "";
+                }, 2000);
+            }).catch(() => {
+                prompt("Direct Image Link:", fullUrl);
+            });
+        }
+
+        function handleUnsupportedModify() {
+            alert("Image modification (Image-to-Image editing) requires a FLUX model (such as mlx-community/flux2-klein-9b-4bit). Please load FLUX.2 Klein from the sidebar to edit images.");
+        }
+
+        function attachReferenceImage(url, displayName = "Reference Image") {
+            const modelLower = (activeModel || "").toLowerCase();
+            const isFlux = modelLower.includes("flux");
+            const isVlm = modelLower.includes("gemma") || modelLower.includes("qwen") || modelLower.includes("vl");
+
+            if (!isFlux && !isVlm) {
+                handleUnsupportedModify();
+                return;
+            }
+
+            attachedReferenceImageUrl = url;
+            attachedImageThumb.src = url;
+            attachedImageName.textContent = displayName;
+            attachedImageContainer.style.display = "inline-flex";
+            userInput.placeholder = isFlux 
+                ? "Describe changes to make to this image with FLUX.2 (e.g. change lighting, add object)..."
+                : "Ask a question about this image with the VLM...";
+            userInput.focus();
+        }
+
+        function clearAttachedReferenceImage() {
+            attachedReferenceImageUrl = null;
+            attachedImageContainer.style.display = "none";
+            attachedImageThumb.src = "";
+            userInput.placeholder = "Type a message, or /image <prompt> to generate an image... (Enter to send, Shift+Enter for newline)";
+        }
+
+        const autoExpandToggle = document.getElementById("auto-expand-toggle");
+        const directorDesc = document.getElementById("director-status-desc");
+        if (autoExpandToggle && directorDesc) {
+            autoExpandToggle.addEventListener("change", () => {
+                if (autoExpandToggle.checked) {
+                    directorDesc.innerHTML = 'Enriches short prompts with cinematography details. Toggle OFF for <b>Direct Mode</b> (minimal VRAM & max speed).';
+                    directorDesc.style.color = 'var(--text-secondary)';
+                } else {
+                    directorDesc.innerHTML = '⚡ <b>Direct Mode (Minimal VRAM)</b>: Text LLM bypassed. Generates directly from raw prompt for lowest memory.';
+                    directorDesc.style.color = '#38bdf8';
+                }
+            });
+        }
+
+        if (uploadBtn && imageUploadInput) {
+            uploadBtn.addEventListener("click", () => {
+                imageUploadInput.click();
+            });
+
+            imageUploadInput.addEventListener("change", async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                uploadBtn.disabled = true;
+                try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const resp = await fetch(`${API_URL}/v1/upload_image`, {
+                        method: "POST",
+                        body: formData
+                    });
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        throw new Error(err.detail || "Failed to upload image");
+                    }
+                    const data = await resp.json();
+                    attachReferenceImage(data.url, file.name);
+                } catch (err) {
+                    alert("Image upload failed: " + err.message);
+                } finally {
+                    uploadBtn.disabled = false;
+                    imageUploadInput.value = "";
+                }
+            });
+        }
 
         // Set up parameters listener
         tempSlider.addEventListener("input", (e) => {
@@ -850,12 +1147,33 @@
             }
         }
 
+        function isImageModelName(name) {
+            if (!name) return false;
+            const lower = name.toLowerCase();
+            return lower.includes("flux") || 
+                   lower.includes("diffusion") || 
+                   lower.includes("bonsai") || 
+                   lower.includes("klein") ||
+                   lower.includes("sdxl") ||
+                   lower.includes("stable-diffusion") ||
+                   lower.includes("z-image") ||
+                   lower.includes("z_image") ||
+                   lower.includes("zimage");
+        }
+
         function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftTokens, backend) {
             currentModelHeader.textContent = modelName || "Select and Load a Model";
             
+            const isImage = (backend === 'image') || isImageModelName(modelName);
+
             if (modelName) {
                 headerSpeculationBadge.style.display = "inline-block";
-                if (specMode === "mtp" || hasMtp) {
+                if (isImage) {
+                    headerSpeculationBadge.textContent = "🎨 Flow Matching Image Generator";
+                    headerSpeculationBadge.style.background = "rgba(168, 85, 247, 0.18)";
+                    headerSpeculationBadge.style.color = "#c084fc";
+                    headerSpeculationBadge.style.borderColor = "rgba(168, 85, 247, 0.4)";
+                } else if (specMode === "mtp" || hasMtp) {
                     const tokensText = draftTokens ? `${draftTokens} Draft Tokens` : "Active";
                     headerSpeculationBadge.textContent = `⚡ MTP Speculation (${tokensText}) [${(backend || 'LLM').toUpperCase()}]`;
                     headerSpeculationBadge.style.background = "rgba(16, 185, 129, 0.15)";
@@ -877,6 +1195,154 @@
             }
         }
 
+        // Dynamically greys out / disables non-applicable controls for image models
+        function handleModelSelectionChange() {
+            let selectedVal = modelSelect.value;
+            if (selectedVal === "__CUSTOM__") {
+                selectedVal = customModelInput.value.trim();
+            }
+            const isImage = isImageModelName(selectedVal);
+            
+            const noticeEl = document.getElementById("image-model-notice");
+            const tempContainer = tempSlider.closest(".control-group");
+            const tokensContainer = tokensInput.closest(".control-group");
+            const kvContainer = kvSizeInput.closest(".control-group");
+            const lookaheadContainer = draftTokensSelect.closest(".control-group");
+            const draftContainer = draftSelect.closest(".control-group");
+            const reasoningContainer = document.getElementById("reasoning-toggle-container");
+            const paramsTitle = document.getElementById("parameters-section-title");
+
+            if (isImage) {
+                // Grey out non-applicable fields
+                draftSelect.disabled = true;
+                if (draftContainer) {
+                    draftContainer.style.opacity = "0.38";
+                    draftContainer.style.filter = "grayscale(0.8)";
+                    draftContainer.style.pointerEvents = "none";
+                }
+
+                draftTokensSelect.disabled = true;
+                if (lookaheadContainer) {
+                    lookaheadContainer.style.opacity = "0.38";
+                    lookaheadContainer.style.filter = "grayscale(0.8)";
+                    lookaheadContainer.style.pointerEvents = "none";
+                }
+
+                kvSizeInput.disabled = true;
+                if (kvContainer) {
+                    kvContainer.style.opacity = "0.38";
+                    kvContainer.style.filter = "grayscale(0.8)";
+                    kvContainer.style.pointerEvents = "none";
+                }
+
+                tempSlider.disabled = true;
+                if (tempContainer) {
+                    tempContainer.style.opacity = "0.38";
+                    tempContainer.style.filter = "grayscale(0.8)";
+                    tempContainer.style.pointerEvents = "none";
+                }
+
+                tokensInput.disabled = true;
+                if (tokensContainer) {
+                    tokensContainer.style.opacity = "0.38";
+                    tokensContainer.style.filter = "grayscale(0.8)";
+                    tokensContainer.style.pointerEvents = "none";
+                }
+
+                reasoningCheckbox.disabled = true;
+                if (reasoningContainer) {
+                    reasoningContainer.style.opacity = "0.38";
+                    reasoningContainer.style.filter = "grayscale(0.8)";
+                    reasoningContainer.style.pointerEvents = "none";
+                }
+
+                if (paramsTitle) {
+                    paramsTitle.style.opacity = "0.45";
+                }
+
+                if (noticeEl) noticeEl.style.display = "block";
+                const resContainer = document.getElementById("image-resolution-container");
+                if (resContainer) resContainer.style.display = "flex";
+                const dirContainer = document.getElementById("image-director-container");
+                if (dirContainer) dirContainer.style.display = "block";
+            } else {
+                // Restore all text LLM fields
+                draftSelect.disabled = false;
+                if (draftContainer) {
+                    draftContainer.style.opacity = "1";
+                    draftContainer.style.filter = "none";
+                    draftContainer.style.pointerEvents = "auto";
+                }
+
+                draftTokensSelect.disabled = false;
+                if (lookaheadContainer) {
+                    lookaheadContainer.style.opacity = "1";
+                    lookaheadContainer.style.filter = "none";
+                    lookaheadContainer.style.pointerEvents = "auto";
+                }
+
+                kvSizeInput.disabled = false;
+                if (kvContainer) {
+                    kvContainer.style.opacity = "1";
+                    kvContainer.style.filter = "none";
+                    kvContainer.style.pointerEvents = "auto";
+                }
+
+                tempSlider.disabled = false;
+                if (tempContainer) {
+                    tempContainer.style.opacity = "1";
+                    tempContainer.style.filter = "none";
+                    tempContainer.style.pointerEvents = "auto";
+                }
+
+                tokensInput.disabled = false;
+                if (tokensContainer) {
+                    tokensContainer.style.opacity = "1";
+                    tokensContainer.style.filter = "none";
+                    tokensContainer.style.pointerEvents = "auto";
+                }
+
+                reasoningCheckbox.disabled = false;
+                if (reasoningContainer) {
+                    reasoningContainer.style.opacity = "1";
+                    reasoningContainer.style.filter = "none";
+                    reasoningContainer.style.pointerEvents = "auto";
+                }
+
+                if (paramsTitle) {
+                    paramsTitle.style.opacity = "1";
+                }
+
+                if (noticeEl) noticeEl.style.display = "none";
+                const resContainer = document.getElementById("image-resolution-container");
+                if (resContainer) resContainer.style.display = "none";
+                const dirContainer = document.getElementById("image-director-container");
+                if (dirContainer) dirContainer.style.display = "none";
+                autoSelectMatchingDraft(selectedVal);
+            }
+        }
+
+        // Extracts resolution like 1024x1024, 16:9, 1:1 from user prompt if present
+        function extractResolution(text, fallback = "1024x1024") {
+            if (!text) return fallback;
+            const lower = text.toLowerCase();
+            
+            // Explicit regex for WxH like 1024x1024, 1024×1024, 512x768, 1024*576, 1024 x 1024
+            const dimMatch = lower.match(/\b(\d{3,4})\s*[xX×*]\s*(\d{3,4})\b/);
+            if (dimMatch) {
+                return `${dimMatch[1]}x${dimMatch[2]}`;
+            }
+            
+            // Aspect ratios like 16:9, 9:16, 4:3, 3:4, 1:1
+            if (/\b16\s*:\s*9\b/.test(lower)) return "1024x576";
+            if (/\b9\s*:\s*16\b/.test(lower)) return "576x1024";
+            if (/\b4\s*:\s*3\b/.test(lower)) return "1024x768";
+            if (/\b3\s*:\s*4\b/.test(lower)) return "768x1024";
+            if (/\b1\s*:\s*1\b/.test(lower) || /\b(square|1k)\b/.test(lower)) return "1024x1024";
+
+            return fallback;
+        }
+
         // Initialize lists and fetch available models
         async function fetchModels() {
             try {
@@ -888,41 +1354,58 @@
                 activeDraftModel = data.active_draft_model || null;
                 
                 // Clear and rebuild Base Models dropdown
+                let activeFound = false;
                 modelSelect.innerHTML = "";
                 draftSelect.innerHTML = `
                     <option value="__AUTO__">✨ Auto-Detect Companion (Recommended)</option>
                     <option value="__NONE__">🚫 None (Single-Token Baseline)</option>
                 `;
                 
-                const baseOptGroup = document.createElement("optgroup");
-                baseOptGroup.label = "Cached Base Models";
+                const textOptGroup = document.createElement("optgroup");
+                textOptGroup.label = "💬 Text & Vision LLMs";
+
+                const imageOptGroup = document.createElement("optgroup");
+                imageOptGroup.label = "🎨 Image Generation Models";
                 
                 const draftOptGroup = document.createElement("optgroup");
-                draftOptGroup.label = "Available Draft / MTP Assistants";
+                draftOptGroup.label = "⚡ Available Draft / MTP Assistants";
 
-                let activeFound = false;
+                activeImageModel = data.active_image_model || null;
 
                 cachedModelsList.forEach(m => {
                     const isDraft = m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp");
+                    const isImage = m.is_image || isImageModelName(m.id);
                     
-                    if (!isDraft) {
+                    if (isDraft) {
                         const opt = document.createElement("option");
                         opt.value = m.id;
-                        opt.textContent = m.id + (m.active ? " (active)" : "");
-                        if (m.active) {
+                        const isDraftActive = activeDraftModel === m.id || (m.active && m.active_type === "draft");
+                        opt.textContent = m.id + (isDraftActive ? " (active)" : "");
+                        if (isDraftActive) {
+                            opt.selected = true;
+                        }
+                        draftOptGroup.appendChild(opt);
+                    } else if (isImage) {
+                        const opt = document.createElement("option");
+                        opt.value = m.id;
+                        const isImgActive = activeImageModel === m.id || (m.active && m.active_type === "image") || activeModel === m.id;
+                        opt.textContent = m.id + (isImgActive ? " (active)" : "");
+                        if (activeModel === m.id) {
+                            opt.selected = true;
+                            activeFound = true;
+                        }
+                        imageOptGroup.appendChild(opt);
+                    } else {
+                        const opt = document.createElement("option");
+                        opt.value = m.id;
+                        const isTxtActive = activeModel === m.id || (m.active && m.active_type === "llm");
+                        opt.textContent = m.id + (isTxtActive ? " (active)" : "");
+                        if (activeModel === m.id) {
                             opt.selected = true;
                             activeFound = true;
                             if (m.max_kv_size) kvSizeInput.value = m.max_kv_size;
                         }
-                        baseOptGroup.appendChild(opt);
-                    } else {
-                        const opt = document.createElement("option");
-                        opt.value = m.id;
-                        opt.textContent = m.id;
-                        if (activeDraftModel === m.id) {
-                            opt.selected = true;
-                        }
-                        draftOptGroup.appendChild(opt);
+                        textOptGroup.appendChild(opt);
                     }
                 });
 
@@ -930,8 +1413,10 @@
                 const customBaseOpt = document.createElement("option");
                 customBaseOpt.value = "__CUSTOM__";
                 customBaseOpt.textContent = "✏️ Enter Custom Model HF ID...";
-                baseOptGroup.appendChild(customBaseOpt);
-                modelSelect.appendChild(baseOptGroup);
+
+                modelSelect.appendChild(textOptGroup);
+                modelSelect.appendChild(imageOptGroup);
+                modelSelect.appendChild(customBaseOpt);
 
                 // Custom option for draft
                 const customDraftOpt = document.createElement("option");
@@ -940,11 +1425,19 @@
                 draftOptGroup.appendChild(customDraftOpt);
                 draftSelect.appendChild(draftOptGroup);
 
-                if (activeFound) {
+                // Attach change listener if not already attached
+                modelSelect.removeEventListener("change", handleModelSelectionChange);
+                modelSelect.addEventListener("change", handleModelSelectionChange);
+
+                // Update UI state according to active/selected model
+                handleModelSelectionChange();
+
+                if (activeFound || activeModel) {
                     updateHeaderBadge(activeModel, activeDraftModel, data.speculation_mode, data.has_mtp, data.num_draft_tokens, data.backend);
                     userInput.disabled = false;
                     sendBtn.disabled = false;
-                    userInput.placeholder = "Type a message...";
+                    const isImg = (data.backend === "image") || isImageModelName(activeModel);
+                    userInput.placeholder = isImg ? "Type an image prompt to generate..." : "Type a message, or /image <prompt>...";
                 } else {
                     currentModelHeader.textContent = "Select and Load a Model";
                 }
@@ -1020,15 +1513,24 @@
                     statusBadge.querySelector(".status-dot").style.backgroundColor = "#10b981"; // Green
                     userInput.disabled = false;
                     sendBtn.disabled = false;
-                    userInput.placeholder = "Type a message...";
                     
-                    // Clear chat with confirmation
-                    const specInfo = res.speculation_mode === "mtp" ? `with <strong>MTP Acceleration (${res.num_draft_tokens || 3} tokens)</strong>` : (res.draft_model ? `with draft assistant <strong>${res.draft_model}</strong>` : "in standard single-token mode");
-                    chatContainer.innerHTML = `
-                        <div class="message assistant">
-                            Successfully loaded <strong>${activeModel}</strong> ${specInfo}. Ready for optimized Apple Silicon inference!
-                        </div>
-                    `;
+                    const isImg = res.is_image || (res.backend === "image") || isImageModelName(activeModel);
+                    if (isImg) {
+                        userInput.placeholder = "Type an image prompt to generate... (e.g. 'A futuristic city in the clouds')";
+                        chatContainer.innerHTML = `
+                            <div class="message assistant">
+                                Successfully loaded 🎨 <strong>${activeModel}</strong> in native <strong>Diffusion Flow-Matching Mode</strong>. Enter any visual description to generate images directly on Apple Silicon!
+                            </div>
+                        `;
+                    } else {
+                        userInput.placeholder = "Type a message, or /image <prompt>... (Enter to send)";
+                        const specInfo = res.speculation_mode === "mtp" ? `with <strong>MTP Acceleration (${res.num_draft_tokens || 3} tokens)</strong>` : (res.draft_model ? `with draft assistant <strong>${res.draft_model}</strong>` : "in standard single-token mode");
+                        chatContainer.innerHTML = `
+                            <div class="message assistant">
+                                Successfully loaded <strong>${activeModel}</strong> ${specInfo}. Ready for optimized Apple Silicon inference!
+                            </div>
+                        `;
+                    }
                     chatHistory = [];
                 } else {
                     alert("Error loading model: " + (res.detail || JSON.stringify(res)));
@@ -1046,12 +1548,40 @@
             }
         });
 
-        // Toggle reasoning click
-        document.getElementById("reasoning-toggle-container").addEventListener("click", (e) => {
-            if (e.target !== reasoningCheckbox) {
-                reasoningCheckbox.checked = !reasoningCheckbox.checked;
+        // Toggle reasoning click handler with state badge synchronization
+        const reasoningContainer = document.getElementById("reasoning-toggle-container");
+        const reasoningStateBadge = document.getElementById("reasoning-state-badge");
+
+        function updateReasoningBadge() {
+            if (!reasoningStateBadge) return;
+            if (reasoningCheckbox.checked) {
+                reasoningStateBadge.textContent = "ON";
+                reasoningStateBadge.style.background = "rgba(99, 102, 241, 0.2)";
+                reasoningStateBadge.style.color = "#a5b4fc";
+                reasoningStateBadge.style.borderColor = "rgba(99, 102, 241, 0.3)";
+            } else {
+                reasoningStateBadge.textContent = "OFF";
+                reasoningStateBadge.style.background = "rgba(107, 114, 128, 0.2)";
+                reasoningStateBadge.style.color = "#9ca3af";
+                reasoningStateBadge.style.borderColor = "rgba(107, 114, 128, 0.3)";
             }
+        }
+
+        reasoningCheckbox.addEventListener("change", () => {
+            updateReasoningBadge();
         });
+
+        reasoningContainer.addEventListener("click", (e) => {
+            // If the user clicked directly inside the .switch label, the browser's native label behavior toggles the checkbox.
+            // Do not toggle again, or it will double-toggle and cancel out!
+            if (e.target.closest(".switch")) {
+                return;
+            }
+            // If clicked on the container row or label text, toggle the checkbox manually:
+            reasoningCheckbox.checked = !reasoningCheckbox.checked;
+            reasoningCheckbox.dispatchEvent(new Event("change"));
+        });
+        updateReasoningBadge();
 
         // Format message HTML (handling reasoning collapsible thoughts)
         function formatMessageHtml(text) {
@@ -1385,7 +1915,22 @@
             // Add user message to UI
             const userMsgDiv = document.createElement("div");
             userMsgDiv.className = "message user";
-            userMsgDiv.textContent = userText;
+            
+            if (attachedReferenceImageUrl) {
+                const refThumb = document.createElement("img");
+                refThumb.src = attachedReferenceImageUrl;
+                refThumb.style.maxWidth = "160px";
+                refThumb.style.maxHeight = "160px";
+                refThumb.style.borderRadius = "8px";
+                refThumb.style.display = "block";
+                refThumb.style.marginBottom = "8px";
+                refThumb.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+                userMsgDiv.appendChild(refThumb);
+            }
+
+            const textSpan = document.createElement("span");
+            textSpan.textContent = userText;
+            userMsgDiv.appendChild(textSpan);
             chatContainer.appendChild(userMsgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -1416,6 +1961,161 @@
             assistantMsgDiv.appendChild(metricsDiv);
             chatContainer.appendChild(assistantMsgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const isCurrentImageModel = isImageModelName(activeModel) || (currentModelHeader.textContent && isImageModelName(currentModelHeader.textContent));
+            const isExplicitImageCmd = userText.startsWith("/image") || userText.startsWith("/edit");
+            const routeToImageEngine = isExplicitImageCmd || isCurrentImageModel;
+
+            // If not an image model and not an explicit image command, attach reference image to VLM chat history
+            if (!routeToImageEngine && attachedReferenceImageUrl) {
+                chatHistory.pop(); // replace text-only history entry
+                const fullUrl = attachedReferenceImageUrl.startsWith("http") || attachedReferenceImageUrl.startsWith("data:")
+                    ? attachedReferenceImageUrl
+                    : `${window.location.origin}${attachedReferenceImageUrl}`;
+                chatHistory.push({
+                    role: "user",
+                    content: [
+                        { type: "text", text: userText },
+                        { type: "image_url", image_url: { url: fullUrl } }
+                    ]
+                });
+                clearAttachedReferenceImage();
+            }
+
+            // Check for /image, /edit slash command OR image model active
+            if (routeToImageEngine) {
+                const isEdit = !!attachedReferenceImageUrl || userText.startsWith("/edit");
+                const currentRefUrl = attachedReferenceImageUrl;
+                clearAttachedReferenceImage();
+
+                let imagePrompt = userText.startsWith("/image") ? userText.slice(6).trim() : (userText.startsWith("/edit") ? userText.slice(5).trim() : userText.trim());
+                if (!imagePrompt) imagePrompt = isEdit ? "Refine and enhance image details and lighting" : "A beautiful scenic view on Apple Silicon";
+
+                loaderDiv.innerHTML = isEdit 
+                    ? `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">✏️ <span>Modifying image with FLUX Apple Silicon MLX...</span></span>`
+                    : `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">🎨 <span>Generating image with Apple Silicon MLX...</span></span>`;
+
+                try {
+                    // Extract recent conversation text as context for distillation
+                    const recentContext = chatHistory
+                        .slice(-6, -1)
+                        .map(m => `${m.role}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
+                        .join("\n");
+
+                    const resSelectEl = document.getElementById("image-resolution-select");
+                    const defaultRes = resSelectEl ? resSelectEl.value : "1024x1024";
+                    const finalResolution = extractResolution(imagePrompt, defaultRes);
+
+                    const endpoint = isEdit ? `${API_URL}/v1/images/edits` : `${API_URL}/v1/images/generations`;
+                    const isAutoExpand = autoExpandToggle ? autoExpandToggle.checked : false;
+                    const imgPayload = {
+                        prompt: imagePrompt,
+                        size: finalResolution,
+                        steps: 4,
+                        auto_expand: isAutoExpand,
+                        context: isAutoExpand ? recentContext : null,
+                        response_format: "url"
+                    };
+                    if (isEdit && currentRefUrl) {
+                        imgPayload.image = currentRefUrl;
+                        imgPayload.guidance = 2.5;
+                    }
+
+                    const imgResponse = await fetch(endpoint, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(imgPayload)
+                    });
+
+                    if (!imgResponse.ok) {
+                        const errObj = await imgResponse.json();
+                        throw new Error(errObj.detail || "Image operation failed");
+                    }
+
+                    const imgData = await imgResponse.json();
+                    const item = imgData.data[0];
+                    const metrics = imgData.tpm_metrics || {};
+
+                    const supportsEdit = metrics.supports_editing !== undefined 
+                        ? metrics.supports_editing 
+                        : (metrics.model ? metrics.model.toLowerCase().includes("flux") : (activeModel || "").toLowerCase().includes("flux"));
+                    const modelDisplayName = (metrics.model || activeModel || "").split("/").pop();
+
+                    contentDiv.innerHTML = `
+                        <div class="image-result-card">
+                            <img src="${item.url}" class="generated-image" alt="${item.revised_prompt || imagePrompt}" />
+                            ${item.revised_prompt && item.revised_prompt !== imagePrompt ? `
+                                <div class="revised-prompt-tag">
+                                    <b>🪄 Visual Prompt:</b> ${item.revised_prompt}
+                                </div>
+                            ` : ''}
+                            <div class="image-actions">
+                                <a href="${item.url}" download="generated_image.png" class="img-action-btn">
+                                    ⬇️ Download PNG
+                                </a>
+                                ${supportsEdit ? `
+                                    <button class="img-action-btn" onclick="attachReferenceImage('${item.url}', 'Generated Image')">
+                                        ✏️ Modify Image
+                                    </button>
+                                ` : `
+                                    <button class="img-action-btn" style="opacity: 0.55;" title="Image-to-Image editing is supported by FLUX.2 Klein models" onclick="handleUnsupportedModify()">
+                                        ✏️ Modify (FLUX only)
+                                    </button>
+                                `}
+                                <button class="img-action-btn" onclick="copyImageLink(this, '${item.url}')">
+                                    📋 Copy Link
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    metricsDiv.innerHTML = `
+                        ${modelDisplayName ? `
+                        <div class="metric" data-tooltip="Model used for this generation run">
+                            <span class="metric-icon">🤖</span>
+                            <span class="metric-val" style="color: var(--primary);">${modelDisplayName}</span>
+                        </div>` : ''}
+                        <div class="metric" data-tooltip="Total Image Generation Latency">
+                            <span class="metric-icon">⏱️</span>
+                            <span>Latency:</span>
+                            <span class="metric-val">${metrics.generation_time_s}s</span>
+                        </div>
+                        <div class="metric" data-tooltip="Denoising flow steps & step rate">
+                            <span class="metric-icon">🎨</span>
+                            <span>Steps:</span>
+                            <span class="metric-val">${metrics.steps} (${metrics.step_time_s}s/step)</span>
+                        </div>
+                        <div class="metric" data-tooltip="Image Canvas Resolution">
+                            <span class="metric-icon">📐</span>
+                            <span>Size:</span>
+                            <span class="metric-val">${metrics.width}x${metrics.height}</span>
+                        </div>
+                        ${metrics.peak_memory_gb ? `
+                        <div class="metric" data-tooltip="Peak Unified Memory during this generation run on Apple Silicon">
+                            <span class="metric-icon">💾</span>
+                            <span>Memory:</span>
+                            <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+                        </div>` : ''}
+                    `;
+                    metricsDiv.style.display = "flex";
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                    chatHistory.push({ role: "assistant", content: `[Generated Image: ${item.url}]` });
+
+                } catch (err) {
+                    console.error("Image Generation Error:", err);
+                    contentDiv.innerHTML = "";
+                    const errSpan = document.createElement("span");
+                    errSpan.style.color = "#ef4444";
+                    errSpan.textContent = `Error generating image: ${err.message}`;
+                    contentDiv.appendChild(errSpan);
+                } finally {
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    userInput.focus();
+                }
+                return;
+            }
 
             // Build request params
             const payload = {
@@ -1536,7 +2236,11 @@
 
             } catch (err) {
                 console.error("Inference Error:", err);
-                contentDiv.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}</span>`;
+                contentDiv.innerHTML = "";
+                const errSpan = document.createElement("span");
+                errSpan.style.color = "#ef4444";
+                errSpan.textContent = `Error: ${err.message}`;
+                contentDiv.appendChild(errSpan);
             } finally {
                 userInput.disabled = false;
                 sendBtn.disabled = false;

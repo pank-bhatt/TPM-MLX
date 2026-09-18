@@ -4,19 +4,23 @@ import os
 import time
 import json
 import uuid
+import random
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Tuple
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+import mlx.core as mx
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from tpm_mlx.engine import MLXEngine
-from tpm_mlx.utils import get_logger, get_cached_models
+from tpm_mlx.utils import get_logger, get_cached_models, install_safe_streams
 
+install_safe_streams()
 logger = get_logger("server")
 
 ## MLX requires GPU stream affinity. We use a single dedicated thread executor for all MLX operations.
@@ -28,6 +32,15 @@ loaded_model_id: Optional[str] = None
 loaded_draft_model_id: Optional[str] = None
 model_loading_lock = asyncio.Lock()
 
+# Global image engine instance (lazy loaded on demand)
+image_engine: Optional[Any] = None
+loaded_image_model_id: Optional[str] = None
+image_loading_lock = asyncio.Lock()
+
+# Directory for persisted generated images
+images_dir = Path(__file__).parent / "static" / "images"
+images_dir.mkdir(parents=True, exist_ok=True)
+
 # Global default max KV size
 default_max_kv_size = 4096
 
@@ -36,6 +49,9 @@ app = FastAPI(
     description="Optimized Apple Silicon Inference Engine API Server",
     version="0.2.0"
 )
+
+# Mount static images directory for generated assets
+app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 # Enable CORS for easy cross-origin integrations (e.g. Continue, Page playgrounds)
 app.add_middleware(
@@ -110,6 +126,68 @@ class LoadModelRequest(BaseModel):
     num_draft_tokens: Optional[int] = None
 
 
+class ImageGenerationApiRequest(BaseModel):
+    prompt: str
+    image: Optional[str] = None
+    model: Optional[str] = None
+    n: int = Field(default=1, ge=1, le=4)
+    size: str = "1024x1024"
+    steps: int = Field(default=4, ge=1, le=50)
+    guidance: Optional[float] = None
+    seed: Optional[int] = None
+    response_format: str = "url"  # "url" or "b64_json"
+    auto_expand: Optional[bool] = None
+    context: Optional[str] = None
+
+
+class ImageEditApiRequest(BaseModel):
+    image: str  # URL, relative path, or base64 data URI
+    prompt: str
+    model: Optional[str] = None
+    size: Optional[str] = None
+    steps: int = Field(default=4, ge=1, le=50)
+    guidance: Optional[float] = 2.5
+    seed: Optional[int] = None
+    response_format: str = "url"  # "url" or "b64_json"
+    auto_expand: Optional[bool] = None
+    context: Optional[str] = None
+
+
+class LoadImageModelRequest(BaseModel):
+    model: str
+
+
+# Helper to dynamically get or load the image engine on demand
+async def _get_or_load_image_engine(model_id: Optional[str] = None):
+    global image_engine, loaded_image_model_id, mlx_executor
+    from tpm_mlx.image_engine import MLXImageEngine
+
+    target_model = model_id or loaded_image_model_id or MLXImageEngine.DEFAULT_MODEL
+
+    if image_engine is not None and loaded_image_model_id == target_model:
+        return image_engine
+
+    async with image_loading_lock:
+        if image_engine is not None and loaded_image_model_id == target_model:
+            return image_engine
+
+        logger.info(f"Loading image engine with model: {target_model}...")
+
+        def init_img():
+            try:
+                return MLXImageEngine(model_path_or_id=target_model, lazy=False)
+            except BrokenPipeError:
+                logger.warning("Caught BrokenPipeError during image engine load; retrying once...")
+                time.sleep(0.5)
+                return MLXImageEngine(model_path_or_id=target_model, lazy=False)
+
+        loop = asyncio.get_running_loop()
+        new_img_engine = await loop.run_in_executor(mlx_executor, init_img)
+        image_engine = new_img_engine
+        loaded_image_model_id = target_model
+        return image_engine
+
+
 # Helper to dynamically load a model in the server
 async def _load_engine(
     model_id: str, 
@@ -151,13 +229,24 @@ async def _load_engine(
             if hasattr(mx, "metal"):
                 mx.metal.clear_cache()
                 
-            eng = MLXEngine(
-                model_path_or_id=model_id, 
-                max_kv_size=max_kv_size,
-                draft_model_path_or_id=draft_model if draft_model and draft_model.strip() else None,
-                enable_mtp=enable_mtp,
-                num_draft_tokens=num_draft_tokens,
-            )
+            try:
+                eng = MLXEngine(
+                    model_path_or_id=model_id, 
+                    max_kv_size=max_kv_size,
+                    draft_model_path_or_id=draft_model if draft_model and draft_model.strip() else None,
+                    enable_mtp=enable_mtp,
+                    num_draft_tokens=num_draft_tokens,
+                )
+            except BrokenPipeError:
+                logger.warning("Caught BrokenPipeError during MLX engine load; retrying once...")
+                time.sleep(0.5)
+                eng = MLXEngine(
+                    model_path_or_id=model_id, 
+                    max_kv_size=max_kv_size,
+                    draft_model_path_or_id=draft_model if draft_model and draft_model.strip() else None,
+                    enable_mtp=enable_mtp,
+                    num_draft_tokens=num_draft_tokens,
+                )
             
             gc.collect()
             mx.clear_cache()
@@ -165,7 +254,7 @@ async def _load_engine(
                 mx.metal.clear_cache()
                 
             return eng
-            
+
         loop = asyncio.get_running_loop()
         new_engine = await loop.run_in_executor(mlx_executor, init_engine)
         
@@ -185,7 +274,7 @@ async def startup_event():
     enable_mtp = os.environ.get("TPM_ENABLE_MTP", "True").lower() == "true"
     num_draft = int(os.environ.get("TPM_NUM_DRAFT_TOKENS")) if os.environ.get("TPM_NUM_DRAFT_TOKENS") else None
     
-    if default_model:
+    if default_model and default_model.strip().lower() not in ("none", "null", "false", ""):
         try:
             await _load_engine(
                 model_id=default_model, 
@@ -196,6 +285,13 @@ async def startup_event():
             )
         except Exception as e:
             logger.error(f"Failed to load default model {default_model} on startup: {e}")
+
+    default_image_model = os.environ.get("TPM_DEFAULT_IMAGE_MODEL")
+    if default_image_model:
+        try:
+            await _get_or_load_image_engine(default_image_model)
+        except Exception as e:
+            logger.error(f"Failed to load default image model {default_image_model} on startup: {e}")
 
 
 # --- API Routes ---
@@ -217,57 +313,76 @@ async def serve_playground():
     return HTMLResponse(content=content)
 
 
+def is_image_repo(repo_id: Optional[str]) -> bool:
+    if not repo_id:
+        return False
+    lower = repo_id.lower()
+    return any(k in lower for k in ("flux", "diffusion", "bonsai", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage"))
+
+
 @app.get("/v1/models")
 async def list_models():
     """
     Returns list of loaded models and Hugging Face cached models.
     """
     data = []
-    
-    def is_draft_repo(repo_id: str) -> bool:
-        lower = repo_id.lower()
-        return "assistant" in lower or "-mtp" in lower or "_mtp" in lower or "drafter" in lower
-    
-    # 1. Add currently loaded model if available
+    seen_ids = set()
+
+    # 1. Add currently loaded text/vision LLM or image model if available
+    is_curr_img = is_image_repo(loaded_model_id) if loaded_model_id else False
     if loaded_model_id:
+        seen_ids.add(loaded_model_id)
         data.append({
             "id": loaded_model_id,
             "object": "model",
             "created": int(time.time()),
             "owned_by": "tpm-mlx",
             "active": True,
+            "active_type": "image" if is_curr_img else "llm",
             "is_draft": False,
-            "backend": getattr(engine, "backend", "llm"),
+            "is_image": is_curr_img,
+            "backend": "image" if is_curr_img else getattr(engine, "backend", "llm"),
             "max_kv_size": getattr(engine, "max_kv_size", default_max_kv_size),
-            "speculation_mode": getattr(engine, "speculation_mode", "none"),
-            "has_mtp": getattr(engine, "has_mtp", False),
-            "num_draft_tokens": getattr(engine, "num_draft_tokens", 0),
-            "draft_model": loaded_draft_model_id,
+            "speculation_mode": "none" if is_curr_img else getattr(engine, "speculation_mode", "none"),
+            "has_mtp": False if is_curr_img else getattr(engine, "has_mtp", False),
+            "num_draft_tokens": 0 if is_curr_img else getattr(engine, "num_draft_tokens", 0),
+            "draft_model": None if is_curr_img else loaded_draft_model_id,
         })
-        
-    # 2. Retrieve cached models on disk
+
+    # 2. Retrieve verified cached models on disk
     cached = get_cached_models()
     for item in cached:
-        if item["repo_id"] != loaded_model_id:
-            data.append({
-                "id": item["repo_id"],
-                "object": "model",
-                "created": int(item["last_modified"]),
-                "owned_by": "huggingface",
-                "active": False,
-                "is_draft": is_draft_repo(item["repo_id"]),
-                "size_bytes": item["size_on_disk"]
-            })
-            
+        repo_id = item["repo_id"]
+        if repo_id in seen_ids:
+            continue
+        seen_ids.add(repo_id)
+
+        is_active_image = bool(loaded_image_model_id and repo_id == loaded_image_model_id)
+        is_active_draft = bool(loaded_draft_model_id and repo_id == loaded_draft_model_id)
+
+        data.append({
+            "id": repo_id,
+            "object": "model",
+            "created": int(item["last_modified"]),
+            "owned_by": "huggingface",
+            "active": is_active_image or is_active_draft,
+            "active_type": "image" if is_active_image else ("draft" if is_active_draft else None),
+            "is_draft": item.get("is_draft", False),
+            "is_image": item.get("is_image", False),
+            "size_bytes": item.get("size_on_disk", 0),
+            "arch": item.get("arch", "")
+        })
+
     return {
         "object": "list", 
         "data": data,
         "active_model": loaded_model_id,
-        "active_draft_model": loaded_draft_model_id,
-        "speculation_mode": getattr(engine, "speculation_mode", "none") if engine else "none",
-        "has_mtp": getattr(engine, "has_mtp", False) if engine else False,
-        "num_draft_tokens": getattr(engine, "num_draft_tokens", 0) if engine else 0,
-        "backend": getattr(engine, "backend", "llm") if engine else "llm",
+        "active_draft_model": None if is_curr_img else loaded_draft_model_id,
+        "active_image_model": loaded_image_model_id,
+        "speculation_mode": "none" if is_curr_img else (getattr(engine, "speculation_mode", "none") if engine else "none"),
+        "has_mtp": False if is_curr_img else (getattr(engine, "has_mtp", False) if engine else False),
+        "num_draft_tokens": 0 if is_curr_img else (getattr(engine, "num_draft_tokens", 0) if engine else 0),
+        "backend": "image" if is_curr_img else (getattr(engine, "backend", "llm") if engine else "llm"),
     }
 
 
@@ -275,8 +390,53 @@ async def list_models():
 async def load_model_endpoint(req: LoadModelRequest):
     """
     Endpoint to load/switch models dynamically from the playground or API.
+    Auto-detects image vs text models and routes accordingly.
     """
-    global default_max_kv_size
+    global default_max_kv_size, loaded_model_id, engine, loaded_draft_model_id
+    
+    if req.model.strip().lower() in ("none", "null", "unload"):
+        old_engine = engine
+        engine = None
+        loaded_model_id = None
+        loaded_draft_model_id = None
+        if old_engine is not None:
+            try:
+                del old_engine.model
+                del old_engine.processor
+                del old_engine.drafter
+            except Exception:
+                pass
+            del old_engine
+        import gc
+        gc.collect()
+        mx.clear_cache()
+        return {
+            "status": "success",
+            "message": "Unloaded text engine from Unified Memory",
+            "model": None,
+            "draft_model": None,
+            "backend": "none",
+            "speculation_mode": "none",
+            "has_mtp": False,
+            "num_draft_tokens": 0,
+            "is_image": False,
+        }
+
+    if is_image_repo(req.model):
+        await _get_or_load_image_engine(req.model)
+        loaded_model_id = req.model
+        return {
+            "status": "success",
+            "message": f"Successfully loaded image model {req.model}",
+            "model": req.model,
+            "draft_model": None,
+            "backend": "image",
+            "speculation_mode": "none",
+            "has_mtp": False,
+            "num_draft_tokens": 0,
+            "is_image": True,
+        }
+
     kv_size = req.max_kv_size or default_max_kv_size
     enable_mtp = req.enable_mtp if req.enable_mtp is not None else True
     try:
@@ -296,6 +456,7 @@ async def load_model_endpoint(req: LoadModelRequest):
             "speculation_mode": engine.speculation_mode if engine else "none",
             "has_mtp": engine.has_mtp if engine else False,
             "num_draft_tokens": engine.num_draft_tokens if engine else 0,
+            "is_image": False,
         }
     except Exception as e:
         logger.error(f"Error loading model {req.model}: {e}")
@@ -534,3 +695,246 @@ async def chat_completions(req: ChatCompletionRequest):
         }
         
         return JSONResponse(content=response_json)
+
+
+@app.post("/v1/load_image_model")
+async def load_image_model_endpoint(req: LoadImageModelRequest):
+    """Dynamically loads or switches the active image generation model."""
+    await _get_or_load_image_engine(req.model)
+    return JSONResponse(content={"status": "ok", "loaded_image_model": req.model})
+
+
+@app.post("/v1/images/generations")
+async def generate_images_endpoint(req: ImageGenerationApiRequest):
+    """
+    OpenAI-compatible image generation endpoint.
+    Supports resolution, steps, seed, response_format (url / b64_json),
+    and intelligent context distillation via the active text LLM engine.
+    """
+    img_eng = await _get_or_load_image_engine(req.model)
+    
+    effective_prompt = req.prompt
+    revised_prompt: Optional[str] = None
+    
+    # Context Distillation: Strictly bypass if auto_expand is False. Only distill if True or (None with context/length)
+    should_distill = False
+    if req.auto_expand is True:
+        should_distill = True
+    elif req.auto_expand is None and (bool(req.context) or len(req.prompt) > 300):
+        should_distill = True
+
+    if should_distill and engine is not None:
+        try:
+            loop = asyncio.get_running_loop()
+            def distill():
+                distill_prompt_text = (
+                    f"<|im_start|>system\nYou are an expert visual prompt director. "
+                    f"Analyze the context and request, then synthesize a single dense, photorealistic "
+                    f"image generation prompt focusing on subjects, lighting, colors, mood, and composition (max 80 words). "
+                    f"Output ONLY the prompt text.<|im_end|>\n"
+                    f"<|im_start|>user\nContext:\n{req.context or ''}\n\nRequest: {req.prompt}<|im_end|>\n"
+                    f"<|im_start|>assistant\n"
+                )
+                responses = list(engine.generate_stream(distill_prompt_text, max_tokens=200, temperature=0.3, show_reasoning=True))
+                text = "".join(r.text for r in responses).strip()
+                if "</think>" in text:
+                    text = text.split("</think>", 1)[-1].strip()
+                elif "<channel|>" in text:
+                    text = text.split("<channel|>", 1)[-1].strip()
+                if ":" in text and len(text.split(":", 1)[0]) < 60:
+                    prefix = text.split(":", 1)[0].lower()
+                    if any(k in prefix for k in ("prompt", "output", "description", "image")):
+                        text = text.split(":", 1)[1].strip()
+                mx.synchronize()
+                return text
+                
+            revised = await loop.run_in_executor(mlx_executor, distill)
+            if revised and len(revised) > 10:
+                effective_prompt = revised
+                revised_prompt = revised
+                logger.info(f"Distilled visual prompt: '{effective_prompt[:70]}...'")
+        except Exception as ex:
+            logger.warning(f"Context distillation skipped: {ex}")
+
+    from tpm_mlx.image_engine import MLXImageEngine
+    detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)
+    effective_size = detected_size or req.size or "1024x1024"
+
+    # Generate image on the dedicated mlx_executor thread
+    loop = asyncio.get_running_loop()
+    def run_gen():
+        filename = f"gen_{int(time.time())}_{random.randint(1000, 9999)}.png"
+        filepath = images_dir / filename
+        res = img_eng.generate(
+            prompt=effective_prompt,
+            size=effective_size,
+            steps=req.steps,
+            guidance=req.guidance,
+            seed=req.seed,
+            output_path=filepath,
+            revised_prompt=revised_prompt or effective_prompt,
+            image_paths=req.image,
+        )
+        return res, filename
+
+    try:
+        result, fname = await loop.run_in_executor(mlx_executor, run_gen)
+    except asyncio.CancelledError:
+        raise HTTPException(status_code=503, detail="Image generation cancelled.")
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+
+    url = f"/images/{fname}"
+    data_item: Dict[str, Any] = {
+        "url": url,
+        "revised_prompt": result.revised_prompt,
+    }
+    if req.response_format == "b64_json":
+        data_item["b64_json"] = result.b64_json
+
+    return JSONResponse(content={
+        "created": int(time.time()),
+        "data": [data_item],
+        "tpm_metrics": {
+            "generation_time_s": result.metrics.generation_time_s,
+            "steps": result.metrics.steps,
+            "step_time_s": result.metrics.step_time_s,
+            "peak_memory_gb": result.metrics.peak_memory_gb,
+            "width": result.metrics.width,
+            "height": result.metrics.height,
+            "seed": result.metrics.seed,
+            "model": result.metrics.model,
+            "supports_editing": result.metrics.supports_editing,
+        }
+    })
+
+
+@app.post("/v1/upload_image")
+async def upload_image_endpoint(file: UploadFile = File(...)):
+    """Uploads a local user image for Image-to-Image editing."""
+    uploads_dir = images_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "image.png").suffix or ".png"
+    filename = f"upload_{int(time.time())}_{random.randint(1000, 9999)}{ext}"
+    dest_path = uploads_dir / filename
+    
+    contents = await file.read()
+    dest_path.write_bytes(contents)
+    
+    return JSONResponse(content={
+        "status": "success",
+        "filename": filename,
+        "url": f"/images/uploads/{filename}",
+        "path": str(dest_path),
+    })
+
+
+@app.post("/v1/images/edits")
+async def edit_images_endpoint(req: ImageEditApiRequest):
+    """
+    OpenAI-compatible image editing endpoint.
+    Modifies an input reference image according to a natural language prompt.
+    """
+    img_eng = await _get_or_load_image_engine(req.model)
+    
+    if not img_eng.supports_editing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{img_eng.model_id}' does not support instruction-based image editing. Please select 'mlx-community/FLUX.2-klein-9B'."
+        )
+
+    effective_prompt = req.prompt
+    revised_prompt: Optional[str] = None
+
+    # Context Distillation: Strictly bypass if auto_expand is False. Only distill if True or (None with context/length)
+    should_distill = False
+    if req.auto_expand is True:
+        should_distill = True
+    elif req.auto_expand is None and (bool(req.context) or len(req.prompt) > 300):
+        should_distill = True
+
+    if should_distill and engine is not None:
+        try:
+            loop = asyncio.get_running_loop()
+            def distill():
+                distill_prompt_text = (
+                    f"<|im_start|>system\nYou are an expert visual prompt director for image editing. "
+                    f"Analyze the edit request and context, then synthesize a concise, precise image modification prompt "
+                    f"focusing on the exact changes to be made (clothing, colors, lighting, objects) while retaining unchanged elements (max 60 words). "
+                    f"Output ONLY the prompt text.<|im_end|>\n"
+                    f"<|im_start|>user\nContext:\n{req.context or ''}\n\nEdit Request: {req.prompt}<|im_end|>\n"
+                    f"<|im_start|>assistant\n"
+                )
+                responses = list(engine.generate_stream(distill_prompt_text, max_tokens=150, temperature=0.3, show_reasoning=True))
+                text = "".join(r.text for r in responses).strip()
+                if "</think>" in text:
+                    text = text.split("</think>", 1)[-1].strip()
+                elif "<channel|>" in text:
+                    text = text.split("<channel|>", 1)[-1].strip()
+                if ":" in text and len(text.split(":", 1)[0]) < 60:
+                    prefix = text.split(":", 1)[0].lower()
+                    if any(k in prefix for k in ("prompt", "output", "description", "image")):
+                        text = text.split(":", 1)[1].strip()
+                mx.synchronize()
+                return text
+                
+            revised = await loop.run_in_executor(mlx_executor, distill)
+            if revised and len(revised) > 10:
+                effective_prompt = revised
+                revised_prompt = revised
+                logger.info(f"Distilled visual edit prompt: '{effective_prompt[:70]}...'")
+        except Exception as ex:
+            logger.warning(f"Context distillation skipped: {ex}")
+
+    from tpm_mlx.image_engine import MLXImageEngine
+    detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)
+    effective_size = detected_size or req.size
+
+    loop = asyncio.get_running_loop()
+    def run_edit():
+        filename = f"edit_{int(time.time())}_{random.randint(1000, 9999)}.png"
+        filepath = images_dir / filename
+        res = img_eng.edit(
+            image_paths=req.image,
+            prompt=effective_prompt,
+            size=effective_size,
+            steps=req.steps,
+            guidance=req.guidance,
+            seed=req.seed,
+            output_path=filepath,
+            revised_prompt=revised_prompt or effective_prompt,
+        )
+        return res, filename
+
+    try:
+        result, fname = await loop.run_in_executor(mlx_executor, run_edit)
+    except asyncio.CancelledError:
+        raise HTTPException(status_code=503, detail="Image edit cancelled.")
+    except Exception as e:
+        logger.error(f"Image edit failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Image edit failed: {str(e)}")
+
+    url = f"/images/{fname}"
+    data_item: Dict[str, Any] = {
+        "url": url,
+        "revised_prompt": result.revised_prompt,
+    }
+    if req.response_format == "b64_json":
+        data_item["b64_json"] = result.b64_json
+
+    return JSONResponse(content={
+        "created": int(time.time()),
+        "data": [data_item],
+        "tpm_metrics": {
+            "generation_time_s": result.metrics.generation_time_s,
+            "steps": result.metrics.steps,
+            "step_time_s": result.metrics.step_time_s,
+            "peak_memory_gb": result.metrics.peak_memory_gb,
+            "width": result.metrics.width,
+            "height": result.metrics.height,
+            "seed": result.metrics.seed,
+            "model": result.metrics.model,
+            "supports_editing": result.metrics.supports_editing,
+        }
+    })

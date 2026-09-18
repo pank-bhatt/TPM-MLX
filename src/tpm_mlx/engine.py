@@ -113,13 +113,15 @@ class MLXEngine:
         from tpm_mlx.speculation import SpeculationStats
         self._speculation_stats = SpeculationStats()
 
-        if backend is not None and backend.lower() in ("llm", "vlm"):
+        if backend is not None and backend.lower() in ("llm", "vlm", "bonsai2"):
             self.backend = backend.lower()
         else:
             self.backend = self._detect_backend(self.config)
         logger.info(f"Auto-detected inference backend: '{self.backend.upper()}' for {self.model_path_or_id}")
         
-        if self.backend == "vlm":
+        if self.backend == "bonsai2":
+            self._init_bonsai2_backend()
+        elif self.backend == "vlm":
             self._init_vlm_backend()
         else:
             self._init_llm_backend()
@@ -151,14 +153,19 @@ class MLXEngine:
         self._speculation_stats = val
 
     def _detect_backend(self, config: Dict[str, Any]) -> str:
-        """Auto-detects whether the model is a Multimodal VLM or Pure Text LLM."""
+        """Auto-detects whether the model is a Multimodal VLM, Pure Text LLM, or Bonsai 2."""
+        model_type = str(config.get("model_type", "")).lower()
+        archs = [str(a).lower() for a in config.get("architectures", [])]
+        name_lower = str(getattr(self, "model_path_or_id", "")).lower()
+
+        if model_type == "prism_hadamard_qwen35" or "bonsai-2" in name_lower or "bonsai2" in name_lower:
+            return "bonsai2"
+
         vlm_model_types = {
             "gemma4", "gemma4_assistant", "gemma4_unified", "gemma4_unified_assistant",
             "qwen2_vl", "qwen2_5_vl", "llava", "llava_next", "pixtral",
             "paligemma", "idefics2", "florence2", "molmo", "internvl_chat", "phi3_v"
         }
-        model_type = str(config.get("model_type", "")).lower()
-        archs = [str(a).lower() for a in config.get("architectures", [])]
         
         if model_type in vlm_model_types:
             return "vlm"
@@ -167,6 +174,17 @@ class MLXEngine:
         if "vision_config" in config:
             return "vlm"
         return "llm"
+
+    def _init_bonsai2_backend(self):
+        """Initializes native Ternary Bonsai 2 model and processor with Hadamard Packed layers."""
+        from tpm_mlx.bonsai2 import load_bonsai2_model
+        self.draft_model = None
+        self.draft_kind = "none"
+        self.mtp_head = None
+        
+        self.model, self.processor, self.config = load_bonsai2_model(self.model_path)
+        self.tokenizer = getattr(self.processor, "tokenizer", self.processor)
+
 
     def _init_vlm_backend(self):
         """Initializes mlx-vlm model, processor, and optional MTP drafter."""
@@ -399,12 +417,21 @@ class MLXEngine:
         from mlx_vlm.generate import stream_generate as vlm_stream_generate
         from mlx_vlm.prompt_utils import apply_chat_template
         
-        # Apply model chat template if string prompt
+        # Apply model chat template if string prompt and not already templated
         formatted_prompt = prompt
-        if hasattr(self, "processor") and hasattr(self.processor, "apply_chat_template"):
+        if isinstance(prompt, str) and any(tag in prompt for tag in ("<|im_start|>", "<|start_header_id|>", "<start_of_turn>")):
+            formatted_prompt = prompt
+        elif hasattr(self, "processor") and hasattr(self.processor, "apply_chat_template"):
             try:
-                formatted_prompt = apply_chat_template(self.processor, self.model.config, prompt)
-            except Exception:
+                cfg = getattr(self.model, "config", self.config)
+                if self.backend == "bonsai2" or (isinstance(cfg, dict) and cfg.get("model_type") == "prism_hadamard_qwen35") or getattr(cfg, "model_type", None) == "prism_hadamard_qwen35":
+                    from tpm_mlx.bonsai2 import chat_config
+                    c = chat_config(self.config if isinstance(self.config, dict) else cfg)
+                    formatted_prompt = apply_chat_template(self.processor, c, prompt, num_images=len(images) if images else 0)
+                else:
+                    formatted_prompt = apply_chat_template(self.processor, cfg, prompt, num_images=len(images) if images else 0)
+            except Exception as e:
+                logger.debug(f"apply_chat_template fallback: {e}")
                 formatted_prompt = prompt
             
         gen_kwargs = {
@@ -459,8 +486,8 @@ class MLXEngine:
         A streaming generator wrapping speculative / standard generation with PreAllocatedKVCache
         and reasoning filtering.
         """
-        # If VLM backend is active, route through mlx-vlm stream generator
-        if self.backend == "vlm":
+        # If VLM or Bonsai 2 backend is active, route through mlx-vlm stream generator
+        if self.backend in ("vlm", "bonsai2"):
             raw_stream = self._stream_vlm_generate(
                 prompt=prompt,
                 max_tokens=max_tokens,

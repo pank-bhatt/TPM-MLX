@@ -183,3 +183,24 @@ def test_engine_backend_detection():
     assert dummy._detect_backend({"model_type": "llama", "architectures": ["LlamaForCausalLM"]}) == "llm"
     assert dummy._detect_backend({"model_type": "mistral", "architectures": ["MistralForCausalLM"]}) == "llm"
     assert dummy._detect_backend({"model_type": "deepseek_v3", "architectures": ["DeepseekV3ForCausalLM"]}) == "llm"
+
+    # Bonsai 2 (prism_hadamard_qwen35)
+    assert dummy._detect_backend({"model_type": "prism_hadamard_qwen35"}) == "bonsai2"
+
+
+def test_bonsai2_fwht_transformation():
+    """Verifies that Fast Walsh-Hadamard Transform (FWHT) is numerically orthogonal and invertible."""
+    from tpm_mlx.bonsai2 import fwht
+    block = 512
+    shape = (1, 4, block)
+    x = mx.random.normal(shape).astype(mx.float16)
+    signs = mx.ones((block,)).astype(mx.float16)
+    
+    # Forward FWHT
+    rotated = fwht(x, block=block, signs=signs, inverse=False)
+    assert rotated.shape == shape
+    
+    # Inverse FWHT
+    recovered = fwht(rotated, block=block, signs=signs, inverse=True)
+    assert mx.allclose(x, recovered, atol=1e-2).item()
+
