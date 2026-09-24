@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TPM-MLX Playground</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,13 +29,21 @@
             padding: 0;
         }
 
+        html, body {
+            height: 100%;
+            height: 100dvh;
+            min-height: -webkit-fill-available;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-primary);
             display: flex;
-            height: 100vh;
-            overflow: hidden;
+            width: 100vw;
+            position: relative;
             background-image: 
                 radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
                 radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
@@ -52,8 +60,39 @@
             display: flex;
             flex-direction: column;
             padding: 24px;
-            z-index: 10;
+            z-index: 50;
             overflow-y: auto;
+            overflow-x: hidden;
+            transition: width 0.28s cubic-bezier(0.2, 0, 0, 1), 
+                        padding 0.28s cubic-bezier(0.2, 0, 0, 1), 
+                        transform 0.28s cubic-bezier(0.2, 0, 0, 1),
+                        opacity 0.28s ease;
+        }
+
+        /* Desktop Collapsed Sidebar */
+        body.sidebar-collapsed .sidebar {
+            width: 0 !important;
+            min-width: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            border-right: none !important;
+            overflow: hidden !important;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Mobile Backdrop Overlay */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 7, 16, 0.75);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 990;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.28s ease;
         }
 
         .sidebar::-webkit-scrollbar {
@@ -73,8 +112,37 @@
         .logo-container {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 12px;
-            margin-bottom: 36px;
+            margin-bottom: 28px;
+            flex-shrink: 0;
+        }
+
+        .logo-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-close-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .sidebar-close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.18);
         }
 
         .logo-icon {
@@ -273,35 +341,126 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            height: 100dvh;
+            min-width: 0;
             position: relative;
+            overflow: hidden;
         }
 
         .header {
-            height: 70px;
+            height: 64px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 32px;
-            background: rgba(11, 13, 25, 0.4);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            padding: 0 24px;
+            background: rgba(11, 13, 25, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            flex-shrink: 0;
+            gap: 16px;
+            z-index: 20;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .sidebar-toggle-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--text-primary);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 12px var(--primary-accent-glow);
+        }
+
+        .sidebar-toggle-btn:active {
+            transform: scale(0.96);
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .header-title {
             font-family: 'Outfit', sans-serif;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
             color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #header-speculation-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .header-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .header-status-indicator .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--secondary-accent);
+            animation: pulse 1.8s infinite;
         }
 
         .chat-container {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 32px;
+            overflow-x: hidden;
+            padding: 24px 32px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
         }
 
         /* Message Bubble Design */
@@ -803,15 +962,282 @@
         .message tr:hover {
             background: rgba(99, 102, 241, 0.04);
         }
+
+        /* ==========================================================================
+           Responsive & Mobile Styles
+           ========================================================================== */
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 86vw;
+            }
+
+            /* Off-canvas mobile drawer */
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: min(340px, 86vw);
+                max-width: 86vw;
+                height: 100%;
+                height: 100dvh;
+                z-index: 1000;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+                box-shadow: none;
+                border-right: 1px solid rgba(255, 255, 255, 0.12);
+                padding: max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)) 18px;
+            }
+
+            /* Mobile drawer open state */
+            body.sidebar-open .sidebar {
+                transform: translateX(0);
+                box-shadow: 16px 0 48px rgba(0, 0, 0, 0.7);
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            body.sidebar-open .sidebar-backdrop {
+                display: block;
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            /* Header on mobile */
+            .header {
+                height: calc(54px + env(safe-area-inset-top));
+                padding: env(safe-area-inset-top) 12px 0 12px;
+                gap: 10px;
+            }
+
+            .sidebar-toggle-btn {
+                width: 38px;
+                height: 38px;
+            }
+
+            .header-title {
+                font-size: 14.5px;
+                max-width: 140px;
+            }
+
+            #header-speculation-badge {
+                font-size: 10px !important;
+                padding: 3px 8px !important;
+                max-width: 120px;
+            }
+
+            .header-status-indicator span.status-label {
+                display: none;
+            }
+
+            .header-status-indicator {
+                padding: 4px;
+                border: none;
+                background: transparent;
+            }
+
+            /* Chat layout on mobile */
+            .chat-container {
+                padding: 12px 10px;
+                gap: 14px;
+            }
+
+            .message {
+                max-width: 95%;
+                padding: 12px 14px;
+                font-size: 14px;
+                border-radius: 14px;
+                line-height: 1.55;
+            }
+
+            .message.user {
+                border-bottom-right-radius: 4px;
+            }
+
+            .message.assistant {
+                border-bottom-left-radius: 4px;
+            }
+
+            /* Tables in markdown */
+            .message table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                max-width: 100%;
+                font-size: 12.5px;
+                margin: 10px 0;
+            }
+
+            .message th, .message td {
+                padding: 8px 10px;
+            }
+
+            /* Pre / Code blocks on mobile */
+            pre {
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 12px;
+                font-size: 12px;
+                border-radius: 6px;
+                margin: 8px 0;
+            }
+
+            /* Thought blocks on mobile */
+            .thought-container {
+                margin-bottom: 12px;
+            }
+
+            .thought-header {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .thought-content {
+                padding: 10px;
+                font-size: 12.5px;
+            }
+
+            /* Metrics bar on mobile */
+            .metrics-bar {
+                gap: 5px 6px;
+                font-size: 10.5px;
+                margin-top: 10px;
+                padding-top: 8px;
+            }
+
+            .metric {
+                padding: 3px 7px;
+                border-radius: 5px;
+            }
+
+            .metric::after {
+                bottom: 120%;
+                left: 0;
+                transform: none;
+                max-width: 200px;
+            }
+
+            /* Generated image cards on mobile */
+            .image-result-card {
+                max-width: 100%;
+                gap: 8px;
+            }
+
+            .generated-image {
+                border-radius: 8px;
+            }
+
+            .image-actions {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .img-action-btn {
+                padding: 7px 12px;
+                font-size: 12px;
+                min-height: 36px;
+            }
+
+            /* Input container on mobile */
+            .input-container {
+                padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
+            }
+
+            .input-wrapper {
+                border-radius: 12px;
+                padding: 6px 10px;
+            }
+
+            textarea {
+                font-size: 16px !important; /* Critical: prevents iOS auto-zoom */
+                height: 44px;
+                padding-right: 84px;
+                padding-left: 2px;
+                line-height: 1.4;
+            }
+
+            .upload-btn {
+                right: 48px;
+                bottom: 7px;
+                width: 36px;
+                height: 36px;
+            }
+
+            .send-btn {
+                right: 6px;
+                bottom: 7px;
+                width: 36px;
+                height: 36px;
+            }
+
+            .attached-image-preview {
+                padding: 4px 8px;
+                max-width: 100%;
+            }
+
+            .attached-name {
+                max-width: 140px;
+                font-size: 11px;
+            }
+
+            /* Sidebar controls touch friendliness */
+            select, input[type="text"], input[type="number"], .load-btn {
+                font-size: 16px !important; /* Prevents iOS auto-zoom */
+                min-height: 44px; /* Standard Apple touch target */
+                padding: 10px 12px;
+            }
+
+            .toggle-container {
+                min-height: 44px;
+                padding: 10px 12px;
+            }
+
+            .section-title {
+                margin-top: 18px;
+                margin-bottom: 8px;
+            }
+
+            .control-group {
+                margin-bottom: 14px;
+            }
+        }
+
+        /* Intermediate tablet adjustments (769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            :root {
+                --sidebar-width: 280px;
+            }
+            .chat-container {
+                padding: 20px;
+            }
+            .message {
+                max-width: 86%;
+            }
+            .input-container {
+                padding: 16px 20px 24px 20px;
+            }
+        }
     </style>
 </head>
 <body>
 
+    <!-- Sidebar Backdrop for mobile drawer -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
     <!-- Sidebar -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="logo-container">
-            <div class="logo-icon">T</div>
-            <div class="logo-text">TPM-MLX</div>
+            <div class="logo-brand">
+                <div class="logo-icon">T</div>
+                <div class="logo-text">TPM-MLX</div>
+            </div>
+            <button type="button" class="sidebar-close-btn" id="sidebar-close-btn" title="Collapse Sidebar" aria-label="Collapse Sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
         </div>
 
         <div class="section-title">Model Management</div>
@@ -928,9 +1354,24 @@
     <!-- Main Workspace -->
     <div class="workspace">
         <div class="header">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="header-title" id="current-model-header">No Model Loaded</div>
-                <div id="header-speculation-badge" style="display: none; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3);"></div>
+            <div class="header-left">
+                <button type="button" class="sidebar-toggle-btn" id="sidebar-toggle-btn" title="Toggle Navigation Sidebar" aria-label="Toggle Navigation Sidebar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-meta">
+                    <div class="header-title" id="current-model-header">No Model Loaded</div>
+                    <div id="header-speculation-badge" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="header-status-indicator" id="header-status-indicator" title="Server Status">
+                    <div class="status-dot" id="header-status-dot"></div>
+                    <span class="status-label" id="header-status-label" style="font-weight: 500;">Connected</span>
+                </div>
             </div>
         </div>
 
@@ -1001,6 +1442,109 @@
         const attachedImageThumb = document.getElementById("attached-image-thumb");
         const attachedImageName = document.getElementById("attached-image-name");
         let attachedReferenceImageUrl = null;
+
+        // Navigation Sidebar & Mobile Drawer Elements
+        const sidebar = document.getElementById("sidebar");
+        const sidebarToggleBtn = document.getElementById("sidebar-toggle-btn");
+        const sidebarCloseBtn = document.getElementById("sidebar-close-btn");
+        const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+        const headerStatusDot = document.getElementById("header-status-dot");
+        const headerStatusLabel = document.getElementById("header-status-label");
+
+        function isMobileView() {
+            return window.innerWidth <= 768;
+        }
+
+        function updateServerStatus(status, color, text) {
+            if (statusText) statusText.textContent = text;
+            const dot = statusBadge ? statusBadge.querySelector(".status-dot") : null;
+            if (dot) dot.style.backgroundColor = color;
+            if (headerStatusDot) {
+                headerStatusDot.style.backgroundColor = color;
+                headerStatusDot.parentElement.title = `Server Status: ${text}`;
+            }
+            if (headerStatusLabel) {
+                headerStatusLabel.textContent = text.replace("Server ", "").replace("Model ", "");
+            }
+            if (statusBadge) {
+                if (color === "#ef4444") {
+                    statusBadge.style.borderColor = "rgba(239, 68, 68, 0.25)";
+                    statusBadge.style.color = "#ef4444";
+                } else if (color === "#fbbf24") {
+                    statusBadge.style.borderColor = "rgba(251, 191, 36, 0.25)";
+                    statusBadge.style.color = "#fbbf24";
+                } else {
+                    statusBadge.style.borderColor = "rgba(16, 185, 129, 0.25)";
+                    statusBadge.style.color = "var(--secondary-accent)";
+                }
+            }
+        }
+
+        function toggleSidebar() {
+            if (isMobileView()) {
+                document.body.classList.toggle("sidebar-open");
+                document.body.classList.remove("sidebar-collapsed");
+            } else {
+                const isCollapsed = document.body.classList.toggle("sidebar-collapsed");
+                try {
+                    localStorage.setItem("tpm_mlx_sidebar_collapsed", isCollapsed ? "true" : "false");
+                } catch(e) {}
+            }
+        }
+
+        function closeSidebar() {
+            if (isMobileView()) {
+                document.body.classList.remove("sidebar-open");
+            } else {
+                document.body.classList.add("sidebar-collapsed");
+                try {
+                    localStorage.setItem("tpm_mlx_sidebar_collapsed", "true");
+                } catch(e) {}
+            }
+        }
+
+        function openSidebar() {
+            if (isMobileView()) {
+                document.body.classList.add("sidebar-open");
+            } else {
+                document.body.classList.remove("sidebar-collapsed");
+                try {
+                    localStorage.setItem("tpm_mlx_sidebar_collapsed", "false");
+                } catch(e) {}
+            }
+        }
+
+        if (sidebarToggleBtn) sidebarToggleBtn.addEventListener("click", toggleSidebar);
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener("click", closeSidebar);
+        if (sidebarBackdrop) sidebarBackdrop.addEventListener("click", closeSidebar);
+
+        // Escape key to dismiss mobile drawer or collapse
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                if (isMobileView() && document.body.classList.contains("sidebar-open")) {
+                    closeSidebar();
+                }
+            }
+        });
+
+        // Clean up classes on viewport resize
+        window.addEventListener("resize", () => {
+            if (!isMobileView()) {
+                document.body.classList.remove("sidebar-open");
+            } else {
+                document.body.classList.remove("sidebar-collapsed");
+            }
+            if (activeModel) {
+                updateHeaderBadge(activeModel, activeDraftModel, window._lastSpecMode, window._lastHasMtp, window._lastDraftTokens, window._lastBackend);
+            }
+        });
+
+        // Restore desktop preference
+        try {
+            if (!isMobileView() && localStorage.getItem("tpm_mlx_sidebar_collapsed") === "true") {
+                document.body.classList.add("sidebar-collapsed");
+            }
+        } catch(e) {}
 
         function copyImageLink(btn, relUrl) {
             const fullUrl = window.location.origin + relUrl;
@@ -1162,30 +1706,41 @@
         }
 
         function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftTokens, backend) {
-            currentModelHeader.textContent = modelName || "Select and Load a Model";
+            window._lastSpecMode = specMode;
+            window._lastHasMtp = hasMtp;
+            window._lastDraftTokens = draftTokens;
+            window._lastBackend = backend;
+
+            const isMobile = isMobileView();
+            currentModelHeader.textContent = modelName ? (isMobile ? modelName.split("/").pop() : modelName) : "Select and Load a Model";
+            currentModelHeader.title = modelName || "";
             
             const isImage = (backend === 'image') || isImageModelName(modelName);
 
             if (modelName) {
                 headerSpeculationBadge.style.display = "inline-block";
                 if (isImage) {
-                    headerSpeculationBadge.textContent = "🎨 Flow Matching Image Generator";
+                    headerSpeculationBadge.textContent = isMobile ? "🎨 Image Gen" : "🎨 Flow Matching Image Generator";
+                    headerSpeculationBadge.title = "Native Diffusion Flow Matching Image Generator on MLX";
                     headerSpeculationBadge.style.background = "rgba(168, 85, 247, 0.18)";
                     headerSpeculationBadge.style.color = "#c084fc";
                     headerSpeculationBadge.style.borderColor = "rgba(168, 85, 247, 0.4)";
                 } else if (specMode === "mtp" || hasMtp) {
                     const tokensText = draftTokens ? `${draftTokens} Draft Tokens` : "Active";
-                    headerSpeculationBadge.textContent = `⚡ MTP Speculation (${tokensText}) [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.textContent = isMobile ? `⚡ MTP (${draftTokens || 3} tok)` : `⚡ MTP Speculation (${tokensText}) [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.title = `MTP Speculative Decoding with ${draftTokens || 3} tokens lookahead`;
                     headerSpeculationBadge.style.background = "rgba(16, 185, 129, 0.15)";
                     headerSpeculationBadge.style.color = "#34d399";
                     headerSpeculationBadge.style.borderColor = "rgba(16, 185, 129, 0.35)";
                 } else if (specMode === "draft" && draftName) {
-                    headerSpeculationBadge.textContent = `⚡ Draft Speculation [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.textContent = isMobile ? "⚡ Draft Spec" : `⚡ Draft Speculation [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.title = `Draft Speculation via ${draftName}`;
                     headerSpeculationBadge.style.background = "rgba(99, 102, 241, 0.15)";
                     headerSpeculationBadge.style.color = "#a5b4fc";
                     headerSpeculationBadge.style.borderColor = "rgba(99, 102, 241, 0.35)";
                 } else {
-                    headerSpeculationBadge.textContent = `Standard Decoding [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.textContent = isMobile ? "Standard" : `Standard Decoding [${(backend || 'LLM').toUpperCase()}]`;
+                    headerSpeculationBadge.title = "Standard autoregressive single-token decoding";
                     headerSpeculationBadge.style.background = "rgba(107, 114, 128, 0.15)";
                     headerSpeculationBadge.style.color = "#9ca3af";
                     headerSpeculationBadge.style.borderColor = "rgba(107, 114, 128, 0.25)";
@@ -1437,16 +1992,15 @@
                     userInput.disabled = false;
                     sendBtn.disabled = false;
                     const isImg = (data.backend === "image") || isImageModelName(activeModel);
-                    userInput.placeholder = isImg ? "Type an image prompt to generate..." : "Type a message, or /image <prompt>...";
+                    userInput.placeholder = isImg ? "Type an image prompt to generate..." : (isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)");
+                    updateServerStatus("connected", "#10b981", "Server Connected");
                 } else {
                     currentModelHeader.textContent = "Select and Load a Model";
+                    updateServerStatus("connected", "#10b981", "Server Connected");
                 }
             } catch (err) {
                 console.error("Error loading models:", err);
-                statusText.textContent = "Server Connection Failed";
-                statusBadge.style.borderColor = "rgba(239, 68, 68, 0.25)";
-                statusBadge.style.color = "#ef4444";
-                statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+                updateServerStatus("failed", "#ef4444", "Connection Failed");
             }
         }
 
@@ -1487,8 +2041,7 @@
 
             loadModelBtn.disabled = true;
             loadModelBtn.textContent = "Loading Model...";
-            statusText.textContent = "Loading Model...";
-            statusBadge.querySelector(".status-dot").style.backgroundColor = "#fbbf24"; // Amber
+            updateServerStatus("loading", "#fbbf24", "Loading Model...");
 
             try {
                 const resp = await fetch(`${API_URL}/v1/load_model`, {
@@ -1509,10 +2062,12 @@
                     activeDraftModel = res.draft_model;
                     updateHeaderBadge(activeModel, activeDraftModel, res.speculation_mode, res.has_mtp, res.num_draft_tokens, res.backend);
                     
-                    statusText.textContent = "Model Loaded";
-                    statusBadge.querySelector(".status-dot").style.backgroundColor = "#10b981"; // Green
+                    updateServerStatus("loaded", "#10b981", "Model Loaded");
                     userInput.disabled = false;
                     sendBtn.disabled = false;
+                    if (isMobileView()) {
+                        closeSidebar();
+                    }
                     
                     const isImg = res.is_image || (res.backend === "image") || isImageModelName(activeModel);
                     if (isImg) {
@@ -1523,7 +2078,7 @@
                             </div>
                         `;
                     } else {
-                        userInput.placeholder = "Type a message, or /image <prompt>... (Enter to send)";
+                        userInput.placeholder = isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)";
                         const specInfo = res.speculation_mode === "mtp" ? `with <strong>MTP Acceleration (${res.num_draft_tokens || 3} tokens)</strong>` : (res.draft_model ? `with draft assistant <strong>${res.draft_model}</strong>` : "in standard single-token mode");
                         chatContainer.innerHTML = `
                             <div class="message assistant">
@@ -1534,13 +2089,11 @@
                     chatHistory = [];
                 } else {
                     alert("Error loading model: " + (res.detail || JSON.stringify(res)));
-                    statusText.textContent = "Load Failed";
-                    statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+                    updateServerStatus("failed", "#ef4444", "Load Failed");
                 }
             } catch (err) {
                 alert("Error loading model: " + err);
-                statusText.textContent = "Load Failed";
-                statusBadge.querySelector(".status-dot").style.backgroundColor = "#ef4444";
+                updateServerStatus("failed", "#ef4444", "Load Failed");
             } finally {
                 loadModelBtn.disabled = false;
                 loadModelBtn.textContent = "Load Model";
@@ -1935,6 +2488,7 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
             userInput.value = "";
+            userInput.style.height = "";
             userInput.disabled = true;
             sendBtn.disabled = true;
 
@@ -2112,7 +2666,7 @@
                 } finally {
                     userInput.disabled = false;
                     sendBtn.disabled = false;
-                    userInput.focus();
+                    if (!isMobileView()) userInput.focus();
                 }
                 return;
             }
@@ -2244,9 +2798,15 @@
             } finally {
                 userInput.disabled = false;
                 sendBtn.disabled = false;
-                userInput.focus();
+                if (!isMobileView()) userInput.focus();
             }
         }
+
+        // Auto-growing textarea
+        userInput.addEventListener("input", () => {
+            userInput.style.height = "auto";
+            userInput.style.height = Math.min(userInput.scrollHeight, 140) + "px";
+        });
 
         // Event listeners for inputs
         userInput.addEventListener("keydown", (e) => {

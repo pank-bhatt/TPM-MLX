@@ -31,7 +31,7 @@ def main():
 @click.option("--model", "-m", type=str, default="mlx-community/gemma-4-e2b-it-4bit", help="Model path or Hugging Face repository ID")
 @click.option("--draft-model", "-d", type=str, default=None, help="Companion draft model path for speculative decoding (e.g. Gemma 4 assistant)")
 @click.option("--port", "-p", type=int, default=2505, help="Port to run the server on (default: 2505)")
-@click.option("--host", "-h", type=str, default="127.0.0.1", help="Host address to run the server on (default: 127.0.0.1)")
+@click.option("--host", "-h", type=str, default="0.0.0.0", help="Host address to run the server on (default: 0.0.0.0 for all interfaces including Tailscale)")
 @click.option("--max-kv-size", type=int, default=4096, help="Pre-allocated KV cache size (default: 4096)")
 @click.option("--mtp/--no-mtp", default=True, help="Toggle Multi-Token Prediction (MTP) self-speculation (default: True)")
 @click.option("--num-draft-tokens", type=int, default=None, help="Number of speculative tokens to draft per step")
