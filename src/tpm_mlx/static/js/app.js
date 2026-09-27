@@ -168,6 +168,19 @@ export function isImageModelName(name) {
 }
 
 /**
+ * Strips organizational repo prefixes for clean, single-line mobile dropdown display.
+ * @param {string} modelId 
+ * @param {boolean} isActive 
+ * @returns {string}
+ */
+export function formatModelDisplayLabel(modelId, isActive = false) {
+    if (!modelId) return "";
+    const parts = modelId.split("/");
+    const shortName = parts.length > 1 ? parts.slice(1).join("/") : modelId;
+    return shortName + (isActive ? " (active)" : "");
+}
+
+/**
  * Updates top header model name and speculation indicator badge.
  */
 export function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftTokens, backend) {
@@ -221,6 +234,10 @@ export function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftT
  */
 export function autoSelectMatchingDraft(baseModelId) {
     if (!baseModelId || baseModelId === "__CUSTOM__") return;
+    if (isImageModelName(baseModelId)) {
+        draftSelect.value = "__NONE__";
+        return;
+    }
     const lower = baseModelId.toLowerCase();
     
     if (draftSelect.value === "__AUTO__") {
@@ -263,104 +280,87 @@ export function handleModelSelectionChange() {
     const lookaheadContainer = draftTokensSelect.closest(".control-group");
     const draftContainer = draftSelect.closest(".control-group");
     const paramsTitle = document.getElementById("parameters-section-title");
+    const resContainer = document.getElementById("image-resolution-container");
+    const dirContainer = document.getElementById("image-director-container");
+    const reasoningParent = reasoningContainer ? reasoningContainer.closest(".control-group") : null;
 
     if (isImage) {
+        // Hide MTP & text-generation controls completely (never show MTP for image models)
+        if (draftContainer) draftContainer.style.display = "none";
+        if (customDraftGroup) customDraftGroup.style.display = "none";
+        if (lookaheadContainer) lookaheadContainer.style.display = "none";
+        if (kvContainer) kvContainer.style.display = "none";
+        if (paramsTitle) paramsTitle.style.display = "none";
+        if (tempContainer) tempContainer.style.display = "none";
+        if (tokensContainer) tokensContainer.style.display = "none";
+        if (reasoningParent) reasoningParent.style.display = "none";
+
+        draftSelect.value = "__NONE__";
         draftSelect.disabled = true;
-        if (draftContainer) {
-            draftContainer.style.opacity = "0.38";
-            draftContainer.style.filter = "grayscale(0.8)";
-            draftContainer.style.pointerEvents = "none";
-        }
-
         draftTokensSelect.disabled = true;
-        if (lookaheadContainer) {
-            lookaheadContainer.style.opacity = "0.38";
-            lookaheadContainer.style.filter = "grayscale(0.8)";
-            lookaheadContainer.style.pointerEvents = "none";
-        }
-
         kvSizeInput.disabled = true;
-        if (kvContainer) {
-            kvContainer.style.opacity = "0.38";
-            kvContainer.style.filter = "grayscale(0.8)";
-            kvContainer.style.pointerEvents = "none";
-        }
-
         tempSlider.disabled = true;
-        if (tempContainer) {
-            tempContainer.style.opacity = "0.38";
-            tempContainer.style.filter = "grayscale(0.8)";
-            tempContainer.style.pointerEvents = "none";
-        }
-
         tokensInput.disabled = true;
-        if (tokensContainer) {
-            tokensContainer.style.opacity = "0.38";
-            tokensContainer.style.filter = "grayscale(0.8)";
-            tokensContainer.style.pointerEvents = "none";
-        }
-
         reasoningCheckbox.disabled = true;
-        if (reasoningContainer) {
-            reasoningContainer.style.opacity = "0.38";
-            reasoningContainer.style.filter = "grayscale(0.8)";
-            reasoningContainer.style.pointerEvents = "none";
-        }
 
-        if (paramsTitle) paramsTitle.style.opacity = "0.45";
         if (noticeEl) noticeEl.style.display = "block";
-        const resContainer = document.getElementById("image-resolution-container");
         if (resContainer) resContainer.style.display = "flex";
-        const dirContainer = document.getElementById("image-director-container");
         if (dirContainer) dirContainer.style.display = "block";
     } else {
-        draftSelect.disabled = false;
+        // Restore MTP & LLM controls
         if (draftContainer) {
+            draftContainer.style.display = "flex";
             draftContainer.style.opacity = "1";
             draftContainer.style.filter = "none";
             draftContainer.style.pointerEvents = "auto";
         }
-
-        draftTokensSelect.disabled = false;
+        if (customDraftGroup) {
+            customDraftGroup.style.display = draftSelect.value === "__CUSTOM__" ? "flex" : "none";
+        }
         if (lookaheadContainer) {
+            lookaheadContainer.style.display = "flex";
             lookaheadContainer.style.opacity = "1";
             lookaheadContainer.style.filter = "none";
             lookaheadContainer.style.pointerEvents = "auto";
         }
-
-        kvSizeInput.disabled = false;
         if (kvContainer) {
+            kvContainer.style.display = "flex";
             kvContainer.style.opacity = "1";
             kvContainer.style.filter = "none";
             kvContainer.style.pointerEvents = "auto";
         }
-
-        tempSlider.disabled = false;
+        if (paramsTitle) {
+            paramsTitle.style.display = "block";
+            paramsTitle.style.opacity = "1";
+        }
         if (tempContainer) {
+            tempContainer.style.display = "flex";
             tempContainer.style.opacity = "1";
             tempContainer.style.filter = "none";
             tempContainer.style.pointerEvents = "auto";
         }
-
-        tokensInput.disabled = false;
         if (tokensContainer) {
+            tokensContainer.style.display = "flex";
             tokensContainer.style.opacity = "1";
             tokensContainer.style.filter = "none";
             tokensContainer.style.pointerEvents = "auto";
         }
-
-        reasoningCheckbox.disabled = false;
-        if (reasoningContainer) {
-            reasoningContainer.style.opacity = "1";
-            reasoningContainer.style.filter = "none";
-            reasoningContainer.style.pointerEvents = "auto";
+        if (reasoningParent) {
+            reasoningParent.style.display = "flex";
+            reasoningParent.style.opacity = "1";
+            reasoningParent.style.filter = "none";
+            reasoningParent.style.pointerEvents = "auto";
         }
 
-        if (paramsTitle) paramsTitle.style.opacity = "1";
+        draftSelect.disabled = false;
+        draftTokensSelect.disabled = false;
+        kvSizeInput.disabled = false;
+        tempSlider.disabled = false;
+        tokensInput.disabled = false;
+        reasoningCheckbox.disabled = false;
+
         if (noticeEl) noticeEl.style.display = "none";
-        const resContainer = document.getElementById("image-resolution-container");
         if (resContainer) resContainer.style.display = "none";
-        const dirContainer = document.getElementById("image-director-container");
         if (dirContainer) dirContainer.style.display = "none";
         autoSelectMatchingDraft(selectedVal);
     }
@@ -676,8 +676,8 @@ export async function fetchModels() {
 
         modelSelect.innerHTML = "";
         draftSelect.innerHTML = `
-            <option value="__AUTO__">✨ Auto-Detect Companion (Recommended)</option>
-            <option value="__NONE__">🚫 None (Single-Token Baseline)</option>
+            <option value="__AUTO__">✨ Auto-Detect Companion</option>
+            <option value="__NONE__">🚫 None (Single-Token)</option>
         `;
         
         const textOptGroup = document.createElement("optgroup");
@@ -692,21 +692,23 @@ export async function fetchModels() {
         let activeFound = false;
 
         cachedModelsList.forEach(m => {
-            const isDraft = m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp");
             const isImage = m.is_image || isImageModelName(m.id);
+            const isDraft = !isImage && (m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp"));
             
             if (isDraft) {
                 const opt = document.createElement("option");
                 opt.value = m.id;
+                opt.title = m.id;
                 const isDraftActive = activeDraftModel === m.id || (m.active && m.active_type === "draft");
-                opt.textContent = m.id + (isDraftActive ? " (active)" : "");
+                opt.textContent = formatModelDisplayLabel(m.id, isDraftActive);
                 if (isDraftActive) opt.selected = true;
                 draftOptGroup.appendChild(opt);
             } else if (isImage) {
                 const opt = document.createElement("option");
                 opt.value = m.id;
+                opt.title = m.id;
                 const isImgActive = activeImageModel === m.id || (m.active && m.active_type === "image") || activeModel === m.id;
-                opt.textContent = m.id + (isImgActive ? " (active)" : "");
+                opt.textContent = formatModelDisplayLabel(m.id, isImgActive);
                 if (activeModel === m.id) {
                     opt.selected = true;
                     activeFound = true;
@@ -715,8 +717,9 @@ export async function fetchModels() {
             } else {
                 const opt = document.createElement("option");
                 opt.value = m.id;
+                opt.title = m.id;
                 const isTxtActive = activeModel === m.id || (m.active && m.active_type === "llm");
-                opt.textContent = m.id + (isTxtActive ? " (active)" : "");
+                opt.textContent = formatModelDisplayLabel(m.id, isTxtActive);
                 if (activeModel === m.id) {
                     opt.selected = true;
                     activeFound = true;
@@ -771,23 +774,28 @@ async function handleLoadModel() {
         return;
     }
 
-    let selectedDraft = draftSelect.value;
-    if (selectedDraft === "__CUSTOM__") {
-        selectedDraft = customDraftInput.value.trim();
-    } else if (selectedDraft === "__NONE__") {
-        selectedDraft = null;
-    } else if (selectedDraft === "__AUTO__") {
-        const lower = selectedModel.toLowerCase();
-        if (lower.includes("qwen3.8-27b") && !lower.includes("-mtp")) {
-            selectedDraft = "mlx-community/Qwen3.8-27B-MTP-4bit";
-        } else if (lower.includes("gemma-4-e4b") && !lower.includes("assistant")) {
-            selectedDraft = "mlx-community/gemma-4-E4B-it-assistant-bf16";
-        } else if (lower.includes("gemma-4-e2b") && !lower.includes("assistant")) {
-            selectedDraft = "mlx-community/gemma-4-E2B-it-assistant-bf16";
-        } else if (lower.includes("gemma-4-26b") && !lower.includes("assistant")) {
-            selectedDraft = "mlx-community/gemma-4-26B-A4B-it-assistant-bf16";
-        } else {
+    const isImage = isImageModelName(selectedModel);
+
+    let selectedDraft = null;
+    if (!isImage) {
+        selectedDraft = draftSelect.value;
+        if (selectedDraft === "__CUSTOM__") {
+            selectedDraft = customDraftInput.value.trim();
+        } else if (selectedDraft === "__NONE__") {
             selectedDraft = null;
+        } else if (selectedDraft === "__AUTO__") {
+            const lower = selectedModel.toLowerCase();
+            if (lower.includes("qwen3.8-27b") && !lower.includes("-mtp")) {
+                selectedDraft = "mlx-community/Qwen3.8-27B-MTP-4bit";
+            } else if (lower.includes("gemma-4-e4b") && !lower.includes("assistant")) {
+                selectedDraft = "mlx-community/gemma-4-E4B-it-assistant-bf16";
+            } else if (lower.includes("gemma-4-e2b") && !lower.includes("assistant")) {
+                selectedDraft = "mlx-community/gemma-4-E2B-it-assistant-bf16";
+            } else if (lower.includes("gemma-4-26b") && !lower.includes("assistant")) {
+                selectedDraft = "mlx-community/gemma-4-26B-A4B-it-assistant-bf16";
+            } else {
+                selectedDraft = null;
+            }
         }
     }
 
@@ -801,10 +809,10 @@ async function handleLoadModel() {
     try {
         const res = await loadModelApi({
             model: selectedModel,
-            draft_model: selectedDraft,
-            max_kv_size: kvSize,
-            num_draft_tokens: draftTokensVal,
-            enable_mtp: true,
+            draft_model: isImage ? null : selectedDraft,
+            max_kv_size: isImage ? null : kvSize,
+            num_draft_tokens: isImage ? null : draftTokensVal,
+            enable_mtp: !isImage,
         });
 
         activeModel = res.model || selectedModel;
@@ -832,7 +840,11 @@ async function handleLoadModel() {
             if (currentSession.messages.length === 0) {
                 renderSessionMessages(currentSession.id);
             } else {
-                const specInfo = res.speculation_mode === "mtp" ? `with MTP Acceleration (${res.num_draft_tokens || 3} tokens)` : (res.draft_model ? `with draft assistant ${res.draft_model}` : "in standard single-token mode");
+                const specInfo = isImg 
+                    ? "for Flow Matching Image Generation" 
+                    : (res.speculation_mode === "mtp" 
+                        ? `with MTP Acceleration (${res.num_draft_tokens || 3} tokens)` 
+                        : (res.draft_model ? `with draft assistant ${res.draft_model}` : "in standard single-token mode"));
                 const noticeDiv = document.createElement("div");
                 noticeDiv.className = "message assistant";
                 noticeDiv.style.opacity = "0.85";
@@ -1141,9 +1153,15 @@ function initEventListeners() {
             customModelGroup.style.display = "flex";
         } else {
             customModelGroup.style.display = "none";
-            autoSelectMatchingDraft(modelSelect.value);
         }
+        handleModelSelectionChange();
     });
+
+    if (customModelInput) {
+        customModelInput.addEventListener("input", () => {
+            handleModelSelectionChange();
+        });
+    }
 
     draftSelect.addEventListener("change", () => {
         if (draftSelect.value === "__CUSTOM__") {

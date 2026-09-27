@@ -478,8 +478,8 @@ textarea {
         top: 0;
         left: 0;
         bottom: 0;
-        width: min(340px, 86vw);
-        max-width: 86vw;
+        width: min(300px, 80vw);
+        max-width: 80vw;
         height: 100%;
         height: 100dvh;
         z-index: 1000;
@@ -487,7 +487,23 @@ textarea {
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
         box-shadow: none;
         border-right: 1px solid var(--border-color);
-        padding: max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)) 18px;
+        padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)) 14px;
+    }
+
+    .logo-container {
+        margin-bottom: 14px;
+        gap: 8px;
+    }
+
+    .logo-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+        border-radius: 6px;
+    }
+
+    .logo-text {
+        font-size: 17px;
     }
 
     /* Mobile drawer open state */
@@ -520,20 +536,27 @@ textarea {
         display: none;
     }
 
+    .new-chat-btn {
+        padding: 8px 10px;
+        min-height: 36px;
+        font-size: 12.5px;
+        margin-bottom: 8px;
+    }
+
+    .sessions-list {
+        max-height: 120px;
+    }
+
     .session-item {
-        padding: 9px 12px;
-        min-height: 42px;
+        padding: 6px 9px;
+        min-height: 34px;
+        font-size: 12px;
     }
 
     .session-item-delete {
         opacity: 0.65;
-        width: 26px;
-        height: 26px;
-    }
-
-    .new-chat-btn {
-        padding: 10px 12px;
-        min-height: 42px;
+        width: 24px;
+        height: 24px;
     }
 
     .header-title {
@@ -735,25 +758,55 @@ textarea {
         font-size: 11px;
     }
 
-    /* Sidebar controls touch friendliness */
-    select, input[type="text"], input[type="number"], .load-btn {
-        font-size: 16px !important; /* Prevents iOS auto-zoom */
-        min-height: 44px; /* Standard Apple touch target */
-        padding: 10px 12px;
+    /* Sidebar controls touch friendliness and compact mobile layout */
+    select {
+        font-size: 13px !important;
+        min-height: 36px !important;
+        padding: 6px 28px 6px 10px !important;
+        line-height: 1.3;
+    }
+
+    input[type="text"], input[type="number"] {
+        font-size: 14px !important;
+        min-height: 36px !important;
+        padding: 6px 10px !important;
+    }
+
+    .load-btn {
+        font-size: 13px !important;
+        min-height: 38px !important;
+        padding: 8px 12px !important;
+        margin-top: 10px !important;
     }
 
     .toggle-container {
-        min-height: 44px;
-        padding: 10px 12px;
+        min-height: 36px !important;
+        padding: 6px 10px !important;
     }
 
     .section-title {
-        margin-top: 18px;
-        margin-bottom: 8px;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        font-size: 10.5px;
     }
 
     .control-group {
-        margin-bottom: 14px;
+        margin-bottom: 10px;
+        gap: 4px;
+    }
+
+    .control-group label {
+        font-size: 11.5px;
+    }
+
+    .sidebar-divider {
+        margin: 10px 0 8px 0;
+    }
+
+    #image-model-notice {
+        margin-top: 8px !important;
+        padding: 8px 10px !important;
+        font-size: 11px !important;
     }
 }
 

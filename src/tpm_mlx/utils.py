@@ -133,16 +133,19 @@ def get_cached_models() -> List[Dict[str, Any]]:
             if not has_weights:
                 continue
 
-            is_draft = (
-                "assistant" in repo_id.lower()
-                or "-mtp" in repo_id.lower()
-                or "_mtp" in repo_id.lower()
-                or "mtp" in arch.lower()
-                or "assistant" in arch.lower()
-            )
             is_image = (
                 any(k in repo_id.lower() for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage"))
                 or ("bonsai" in repo_id.lower() and "image" in repo_id.lower())
+            )
+            is_draft = (
+                not is_image
+                and (
+                    "assistant" in repo_id.lower()
+                    or "-mtp" in repo_id.lower()
+                    or "_mtp" in repo_id.lower()
+                    or "mtp" in arch.lower()
+                    or "assistant" in arch.lower()
+                )
             )
 
             size_bytes = 0

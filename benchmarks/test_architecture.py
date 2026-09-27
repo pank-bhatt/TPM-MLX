@@ -120,3 +120,39 @@ def test_director_fallback_when_no_engine():
     prompt = "A red sports car"
     result = asyncio.run(distill_visual_prompt(prompt, context=None, is_edit=False))
     assert result == prompt
+
+
+def test_models_image_draft_isolation():
+    """Verifies that image models report zero draft/mtp parameters on /v1/models."""
+    from tpm_mlx import state
+    client = TestClient(app)
+
+    # Set mock state to an image model
+    prev_model = state.loaded_model_id
+    prev_draft = state.loaded_draft_model_id
+    try:
+        state.loaded_model_id = "justintime47/Z-Image-Turbo-MLX-Serve-8bit"
+        state.loaded_draft_model_id = None
+
+        resp = client.get("/v1/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["active_model"] == "justintime47/Z-Image-Turbo-MLX-Serve-8bit"
+        assert data["active_draft_model"] is None
+        assert data["has_mtp"] is False
+        assert data["speculation_mode"] == "none"
+        assert data["num_draft_tokens"] == 0
+        assert data["backend"] == "image"
+
+        # Check in the data item list
+        active_items = [m for m in data["data"] if m["id"] == "justintime47/Z-Image-Turbo-MLX-Serve-8bit"]
+        assert len(active_items) == 1
+        item = active_items[0]
+        assert item["is_image"] is True
+        assert item["is_draft"] is False
+        assert item["draft_model"] is None
+        assert item["has_mtp"] is False
+    finally:
+        state.loaded_model_id = prev_model
+        state.loaded_draft_model_id = prev_draft
+
