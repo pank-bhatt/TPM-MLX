@@ -23,8 +23,12 @@ def extract_text_and_images(messages: List[Any]) -> Tuple[List[Dict[str, Any]], 
     images = []
 
     for m in messages:
-        role = getattr(m, "role", None) or m.get("role") if isinstance(m, dict) else "user"
-        content = getattr(m, "content", None) or m.get("content") if isinstance(m, dict) else m
+        if isinstance(m, dict):
+            role = m.get("role", "user")
+            content = m.get("content", "")
+        else:
+            role = getattr(m, "role", "user")
+            content = getattr(m, "content", "")
 
         if isinstance(content, str):
             formatted_messages.append({"role": role, "content": content})
