@@ -1,6 +1,7 @@
 # Copyright © 2026 TPM-MLX Authors. All rights reserved.
 
 import os
+import gc
 import time
 import json
 import uuid
@@ -173,6 +174,23 @@ async def _get_or_load_image_engine(model_id: Optional[str] = None):
 
         logger.info(f"Loading image engine with model: {target_model}...")
 
+        # Clean up existing image engine if changing models to free unified memory
+        old_img = image_engine
+        image_engine = None
+        if old_img is not None and loaded_image_model_id != target_model:
+            try:
+                old_img.unload()
+            except Exception:
+                pass
+            del old_img
+            gc.collect()
+            try:
+                mx.clear_cache()
+                if hasattr(mx, "metal"):
+                    mx.metal.clear_cache()
+            except Exception:
+                pass
+
         def init_img():
             try:
                 return MLXImageEngine(model_path_or_id=target_model, lazy=False)
@@ -201,14 +219,6 @@ async def _load_engine(
         logger.info(f"Loading model: {model_id} (KV Cache Size: {max_kv_size}, Draft: {draft_model}, MTP: {enable_mtp})...")
         start_time = time.perf_counter()
         
-        # Reset and refresh dedicated worker to cancel stale queue backlogs immediately
-        old_exec = mlx_executor
-        mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx_thread")
-        try:
-            old_exec.shutdown(wait=False, cancel_futures=True)
-        except Exception:
-            pass
-            
         # Clean up existing engine and release Metal GPU buffers before loading new model
         old_engine = engine
         engine = None
@@ -317,7 +327,10 @@ def is_image_repo(repo_id: Optional[str]) -> bool:
     if not repo_id:
         return False
     lower = repo_id.lower()
-    return any(k in lower for k in ("flux", "diffusion", "bonsai", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage"))
+    return (
+        any(k in lower for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage"))
+        or ("bonsai" in lower and "image" in lower)
+    )
 
 
 @app.get("/v1/models")
@@ -704,6 +717,96 @@ async def load_image_model_endpoint(req: LoadImageModelRequest):
     return JSONResponse(content={"status": "ok", "loaded_image_model": req.model})
 
 
+async def _distill_visual_prompt(
+    prompt: str, 
+    context: Optional[str] = None,
+    is_edit: bool = False,
+) -> str:
+    """
+    Synthesizes an enriched, photorealistic visual prompt from conversational context
+    using the active LLM engine and its native chat template.
+    """
+    global engine, mlx_executor
+    if engine is None:
+        return prompt
+
+    loop = asyncio.get_running_loop()
+
+    def distill():
+        if is_edit:
+            sys_msg = (
+                "You are an expert visual prompt director for image editing. "
+                "Analyze the edit request and context, then synthesize a concise, precise image modification prompt "
+                "focusing on the exact changes to be made (clothing, colors, lighting, objects) while retaining unchanged elements (max 60 words). "
+                "Output ONLY the prompt text."
+            )
+            usr_msg = f"Context:\n{context or ''}\n\nEdit Request: {prompt}"
+        else:
+            sys_msg = (
+                "You are an expert visual prompt director. "
+                "Analyze the context and request, then synthesize a single dense, photorealistic "
+                "image generation prompt focusing on subjects, lighting, colors, mood, and composition (max 80 words). "
+                "Output ONLY the prompt text."
+            )
+            usr_msg = f"Context:\n{context or ''}\n\nRequest: {prompt}"
+
+        messages = [
+            {"role": "system", "content": sys_msg},
+            {"role": "user", "content": usr_msg},
+        ]
+
+        distill_prompt_text = ""
+        if hasattr(engine, "tokenizer") and hasattr(engine.tokenizer, "apply_chat_template"):
+            try:
+                distill_prompt_text = engine.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except Exception:
+                distill_prompt_text = ""
+
+        if not distill_prompt_text:
+            distill_prompt_text = (
+                f"System: {sys_msg}\nUser: {prompt}\nAssistant: "
+            )
+
+        try:
+            responses = list(engine.generate_stream(distill_prompt_text, max_tokens=150, temperature=0.3, show_reasoning=False))
+            text = "".join(r.text for r in responses).strip()
+        except Exception as e:
+            logger.warning(f"Error during prompt distillation generation: {e}")
+            return prompt
+
+        # Strip any thinking / channel / turn tags
+        for tag in ("</think>", "<channel|>", "<|channel|>", "<|channel>", "<end_of_turn>", "<|im_end|>", "<|end_of_text|>"):
+            if tag in text:
+                text = text.split(tag)[-1].strip()
+
+        # Clean up common prefixes like "Prompt: ..."
+        if ":" in text and len(text.split(":", 1)[0]) < 60:
+            prefix = text.split(":", 1)[0].lower()
+            if any(k in prefix for k in ("prompt", "output", "description", "image", "visual prompt")):
+                text = text.split(":", 1)[1].strip()
+
+        # Remove leftover special token markers
+        for garbage in ("<|channel>", "<|channel|>", "<channel|>", "<|im_start|>", "<start_of_turn>"):
+            text = text.replace(garbage, "").strip()
+
+        if not text or len(text) < 10:
+            return prompt
+
+        mx.synchronize()
+        return text
+
+    try:
+        revised = await loop.run_in_executor(mlx_executor, distill)
+        return revised if revised and len(revised) >= 10 else prompt
+    except Exception as ex:
+        logger.warning(f"Prompt distillation failed: {ex}")
+        return prompt
+
+
 @app.post("/v1/images/generations")
 async def generate_images_endpoint(req: ImageGenerationApiRequest):
     """
@@ -724,37 +827,11 @@ async def generate_images_endpoint(req: ImageGenerationApiRequest):
         should_distill = True
 
     if should_distill and engine is not None:
-        try:
-            loop = asyncio.get_running_loop()
-            def distill():
-                distill_prompt_text = (
-                    f"<|im_start|>system\nYou are an expert visual prompt director. "
-                    f"Analyze the context and request, then synthesize a single dense, photorealistic "
-                    f"image generation prompt focusing on subjects, lighting, colors, mood, and composition (max 80 words). "
-                    f"Output ONLY the prompt text.<|im_end|>\n"
-                    f"<|im_start|>user\nContext:\n{req.context or ''}\n\nRequest: {req.prompt}<|im_end|>\n"
-                    f"<|im_start|>assistant\n"
-                )
-                responses = list(engine.generate_stream(distill_prompt_text, max_tokens=200, temperature=0.3, show_reasoning=True))
-                text = "".join(r.text for r in responses).strip()
-                if "</think>" in text:
-                    text = text.split("</think>", 1)[-1].strip()
-                elif "<channel|>" in text:
-                    text = text.split("<channel|>", 1)[-1].strip()
-                if ":" in text and len(text.split(":", 1)[0]) < 60:
-                    prefix = text.split(":", 1)[0].lower()
-                    if any(k in prefix for k in ("prompt", "output", "description", "image")):
-                        text = text.split(":", 1)[1].strip()
-                mx.synchronize()
-                return text
-                
-            revised = await loop.run_in_executor(mlx_executor, distill)
-            if revised and len(revised) > 10:
-                effective_prompt = revised
-                revised_prompt = revised
-                logger.info(f"Distilled visual prompt: '{effective_prompt[:70]}...'")
-        except Exception as ex:
-            logger.warning(f"Context distillation skipped: {ex}")
+        revised = await _distill_visual_prompt(req.prompt, req.context, is_edit=False)
+        if revised and revised != req.prompt and len(revised) >= 10:
+            effective_prompt = revised
+            revised_prompt = revised
+            logger.info(f"Distilled visual prompt: '{effective_prompt[:70]}...'")
 
     from tpm_mlx.image_engine import MLXImageEngine
     detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)
@@ -855,37 +932,11 @@ async def edit_images_endpoint(req: ImageEditApiRequest):
         should_distill = True
 
     if should_distill and engine is not None:
-        try:
-            loop = asyncio.get_running_loop()
-            def distill():
-                distill_prompt_text = (
-                    f"<|im_start|>system\nYou are an expert visual prompt director for image editing. "
-                    f"Analyze the edit request and context, then synthesize a concise, precise image modification prompt "
-                    f"focusing on the exact changes to be made (clothing, colors, lighting, objects) while retaining unchanged elements (max 60 words). "
-                    f"Output ONLY the prompt text.<|im_end|>\n"
-                    f"<|im_start|>user\nContext:\n{req.context or ''}\n\nEdit Request: {req.prompt}<|im_end|>\n"
-                    f"<|im_start|>assistant\n"
-                )
-                responses = list(engine.generate_stream(distill_prompt_text, max_tokens=150, temperature=0.3, show_reasoning=True))
-                text = "".join(r.text for r in responses).strip()
-                if "</think>" in text:
-                    text = text.split("</think>", 1)[-1].strip()
-                elif "<channel|>" in text:
-                    text = text.split("<channel|>", 1)[-1].strip()
-                if ":" in text and len(text.split(":", 1)[0]) < 60:
-                    prefix = text.split(":", 1)[0].lower()
-                    if any(k in prefix for k in ("prompt", "output", "description", "image")):
-                        text = text.split(":", 1)[1].strip()
-                mx.synchronize()
-                return text
-                
-            revised = await loop.run_in_executor(mlx_executor, distill)
-            if revised and len(revised) > 10:
-                effective_prompt = revised
-                revised_prompt = revised
-                logger.info(f"Distilled visual edit prompt: '{effective_prompt[:70]}...'")
-        except Exception as ex:
-            logger.warning(f"Context distillation skipped: {ex}")
+        revised = await _distill_visual_prompt(req.prompt, req.context, is_edit=True)
+        if revised and revised != req.prompt and len(revised) >= 10:
+            effective_prompt = revised
+            revised_prompt = revised
+            logger.info(f"Distilled visual edit prompt: '{effective_prompt[:70]}...'")
 
     from tpm_mlx.image_engine import MLXImageEngine
     detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)

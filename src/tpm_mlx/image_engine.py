@@ -140,20 +140,24 @@ class MLXImageEngine:
         try:
             if hasattr(model_obj, "pipeline"):
                 pipe = model_obj.pipeline
-                if getattr(pipe, "text_encoder", None) is not None:
-                    mx.eval(pipe.text_encoder.parameters())
-                    if hasattr(pipe.text_encoder, "rotary_emb") and hasattr(pipe.text_encoder.rotary_emb, "inv_freq"):
-                        mx.eval(pipe.text_encoder.rotary_emb.inv_freq)
-                if getattr(pipe, "text_encoder_2", None) is not None:
-                    mx.eval(pipe.text_encoder_2.parameters())
-                    if hasattr(pipe.text_encoder_2, "rotary_emb") and hasattr(pipe.text_encoder_2.rotary_emb, "inv_freq"):
-                        mx.eval(pipe.text_encoder_2.rotary_emb.inv_freq)
+                for enc_name in ("text_encoder", "text_encoder_2"):
+                    enc = getattr(pipe, enc_name, None)
+                    if enc is not None:
+                        if hasattr(enc, "parameters"):
+                            mx.eval(enc.parameters())
+                        if hasattr(enc, "rotary_emb"):
+                            for attr in ("_inv_freq", "inv_freq"):
+                                if hasattr(enc.rotary_emb, attr):
+                                    mx.eval(getattr(enc.rotary_emb, attr))
                 if getattr(pipe, "transformer", None) is not None:
-                    mx.eval(pipe.transformer.parameters())
+                    if hasattr(pipe.transformer, "parameters"):
+                        mx.eval(pipe.transformer.parameters())
                 if getattr(pipe, "vae", None) is not None:
-                    mx.eval(pipe.vae.parameters())
+                    if hasattr(pipe.vae, "parameters"):
+                        mx.eval(pipe.vae.parameters())
             elif hasattr(model_obj, "parameters"):
                 mx.eval(model_obj.parameters())
+            mx.synchronize()
         except Exception as e:
             logger.debug(f"Parameter eager evaluation note: {e}")
 
@@ -275,6 +279,7 @@ class MLXImageEngine:
         start_time = time.perf_counter()
 
         with mx.stream(mx.default_stream(mx.default_device())):
+            self._eager_eval_pipeline(self.model)
             gen_result = generate_image(self.model, req)
             mx.eval(gen_result.array)
 
@@ -398,6 +403,7 @@ class MLXImageEngine:
         start_time = time.perf_counter()
 
         with mx.stream(mx.default_stream(mx.default_device())):
+            self._eager_eval_pipeline(edit_model)
             gen_result = edit_image(edit_model, req)
             mx.eval(gen_result.array)
 

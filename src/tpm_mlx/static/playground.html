@@ -9,18 +9,145 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0b0d19;
-            --sidebar-bg: rgba(18, 22, 41, 0.7);
-            --card-bg: rgba(25, 30, 56, 0.45);
-            --border-color: rgba(255, 255, 255, 0.08);
+            /* Linear Dark Theme (Obsidian Frosted Glass) */
+            --bg-base: #07080b;
+            --sidebar-bg: rgba(12, 14, 20, 0.58);
+            --header-bg: rgba(9, 11, 17, 0.55);
+            --card-bg: rgba(18, 22, 32, 0.55);
+            --card-bg-subtle: rgba(255, 255, 255, 0.04);
+            --card-bg-user: rgba(255, 255, 255, 0.07);
+            --glass-control-bg: rgba(255, 255, 255, 0.04);
+            --glass-input-bg: rgba(14, 17, 26, 0.65);
+            
+            --border-color: rgba(255, 255, 255, 0.09);
+            --border-hover: rgba(255, 255, 255, 0.2);
+            --border-active: rgba(255, 255, 255, 0.35);
+            
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-prominent: rgba(255, 255, 255, 0.18);
+            --glass-bevel: inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+            --glass-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.3);
+            
+            --ambient-orb-1: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, rgba(14, 165, 233, 0.06) 50%, transparent 70%);
+            --ambient-orb-2: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(79, 70, 229, 0.05) 50%, transparent 70%);
+            --ambient-orb-3: radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, rgba(236, 72, 153, 0.03) 50%, transparent 70%);
+            
             --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --primary-accent: #6366f1;
-            --primary-accent-glow: rgba(99, 102, 241, 0.35);
-            --secondary-accent: #10b981;
-            --thought-bg: rgba(99, 102, 241, 0.06);
-            --thought-border: rgba(99, 102, 241, 0.25);
+            --text-secondary: #9499a6;
+            --text-tertiary: #606572;
+            
+            /* High-contrast solid primary action */
+            --btn-primary-bg: #eceef2;
+            --btn-primary-text: #08090b;
+            --btn-primary-hover: #ffffff;
+            --btn-primary-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            
+            --input-bg: rgba(255, 255, 255, 0.04);
+            --input-bg-focus: rgba(255, 255, 255, 0.08);
+
+            /* Semantic functional statuses */
+            --status-connected: #10b981;
+            --status-connected-bg: rgba(16, 185, 129, 0.14);
+            --status-connected-border: rgba(16, 185, 129, 0.35);
+            --status-loading: #f59e0b;
+            --status-loading-bg: rgba(245, 158, 11, 0.14);
+            --status-error: #ef4444;
+            --status-error-bg: rgba(239, 68, 68, 0.14);
+
+            /* Badges & tags */
+            --spec-badge-bg: rgba(255, 255, 255, 0.06);
+            --spec-badge-text: #e2e4e9;
+            --spec-badge-border: rgba(255, 255, 255, 0.14);
+
+            /* Thinking block */
+            --thought-bg: rgba(255, 255, 255, 0.03);
+            --thought-border: rgba(255, 255, 255, 0.1);
+            --thought-text: #9ba0ad;
+            --thought-accent: #d1d5db;
+
+            /* Code block */
+            --code-bg: rgba(0, 0, 0, 0.5);
+            --code-border: rgba(255, 255, 255, 0.08);
+            --code-inline-bg: rgba(255, 255, 255, 0.08);
+            --code-inline-text: #e2e8f0;
+
+            /* Scrollbar */
+            --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+            --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+
+            --surface-hover: rgba(255, 255, 255, 0.07);
+            --surface-active: rgba(255, 255, 255, 0.12);
             --sidebar-width: 320px;
+        }
+
+        :root[data-theme="light"] {
+            /* Linear Light Theme (Porcelain Frosted Glass) */
+            --bg-base: #f0f2f5;
+            --sidebar-bg: rgba(255, 255, 255, 0.65);
+            --header-bg: rgba(255, 255, 255, 0.65);
+            --card-bg: rgba(255, 255, 255, 0.72);
+            --card-bg-subtle: rgba(255, 255, 255, 0.55);
+            --card-bg-user: rgba(0, 0, 0, 0.05);
+            --glass-control-bg: rgba(255, 255, 255, 0.6);
+            --glass-input-bg: rgba(255, 255, 255, 0.78);
+            
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --border-active: rgba(0, 0, 0, 0.32);
+            
+            --glass-border: rgba(255, 255, 255, 0.85);
+            --glass-border-prominent: rgba(255, 255, 255, 0.95);
+            --glass-bevel: inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+            --glass-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.07);
+            
+            --ambient-orb-1: radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(14, 165, 233, 0.08) 50%, transparent 70%);
+            --ambient-orb-2: radial-gradient(circle, rgba(244, 63, 94, 0.18) 0%, rgba(236, 72, 153, 0.06) 50%, transparent 70%);
+            --ambient-orb-3: radial-gradient(circle, rgba(168, 85, 247, 0.16) 0%, rgba(129, 140, 248, 0.05) 50%, transparent 70%);
+            
+            --text-primary: #0f1217;
+            --text-secondary: #4b5260;
+            --text-tertiary: #7e8492;
+            
+            --btn-primary-bg: #090a0f;
+            --btn-primary-text: #ffffff;
+            --btn-primary-hover: #1b1e26;
+            --btn-primary-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --input-bg-focus: #ffffff;
+
+            /* Semantic functional statuses */
+            --status-connected: #059669;
+            --status-connected-bg: rgba(16, 185, 129, 0.16);
+            --status-connected-border: rgba(16, 185, 129, 0.35);
+            --status-loading: #d97706;
+            --status-loading-bg: rgba(245, 158, 11, 0.16);
+            --status-error: #dc2626;
+            --status-error-bg: rgba(239, 68, 68, 0.16);
+
+            /* Badges & tags */
+            --spec-badge-bg: rgba(0, 0, 0, 0.05);
+            --spec-badge-text: #1f2328;
+            --spec-badge-border: rgba(0, 0, 0, 0.1);
+
+            /* Thinking block */
+            --thought-bg: rgba(255, 255, 255, 0.5);
+            --thought-border: rgba(0, 0, 0, 0.08);
+            --thought-text: #4b5260;
+            --thought-accent: #1f2328;
+
+            /* Code block */
+            --code-bg: rgba(241, 243, 245, 0.85);
+            --code-border: rgba(0, 0, 0, 0.08);
+            --code-inline-bg: rgba(0, 0, 0, 0.06);
+            --code-inline-text: #0f172a;
+
+            /* Scrollbar */
+            --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+            --scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+
+            --surface-hover: rgba(0, 0, 0, 0.04);
+            --surface-active: rgba(0, 0, 0, 0.08);
         }
 
         * {
@@ -35,18 +162,52 @@
             min-height: -webkit-fill-available;
             overflow: hidden;
             overscroll-behavior: none;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-base);
             color: var(--text-primary);
             display: flex;
             width: 100vw;
             position: relative;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
+            overflow: hidden;
+        }
+
+        /* Ambient Background Light Mesh for High-Fidelity Frosted Glass Refraction */
+        .glass-ambient-sphere {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+            filter: blur(100px);
+            opacity: 0.85;
+            transition: opacity 0.5s ease, background 0.5s ease;
+        }
+
+        .glass-sphere-1 {
+            width: 550px;
+            height: 550px;
+            top: -140px;
+            left: 2%;
+            background: var(--ambient-orb-1);
+        }
+
+        .glass-sphere-2 {
+            width: 620px;
+            height: 620px;
+            bottom: -120px;
+            right: -2%;
+            background: var(--ambient-orb-2);
+        }
+
+        .glass-sphere-3 {
+            width: 440px;
+            height: 440px;
+            top: 35%;
+            left: 48%;
+            background: var(--ambient-orb-3);
         }
 
         /* Sidebar Container */
@@ -54,9 +215,10 @@
             width: var(--sidebar-width);
             flex-shrink: 0;
             background: var(--sidebar-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border-color);
+            backdrop-filter: blur(32px) saturate(190%);
+            -webkit-backdrop-filter: blur(32px) saturate(190%);
+            border-right: 1px solid var(--glass-border);
+            box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.05), var(--glass-bevel), var(--glass-shadow);
             display: flex;
             flex-direction: column;
             padding: 24px;
@@ -66,7 +228,9 @@
             transition: width 0.28s cubic-bezier(0.2, 0, 0, 1), 
                         padding 0.28s cubic-bezier(0.2, 0, 0, 1), 
                         transform 0.28s cubic-bezier(0.2, 0, 0, 1),
-                        opacity 0.28s ease;
+                        opacity 0.28s ease,
+                        background 0.2s ease,
+                        border-color 0.2s ease;
         }
 
         /* Desktop Collapsed Sidebar */
@@ -96,17 +260,17 @@
         }
 
         .sidebar::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
         }
         .sidebar::-webkit-scrollbar-track {
             background: transparent;
         }
         .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--scrollbar-thumb);
             border-radius: 3px;
         }
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: var(--scrollbar-thumb-hover);
         }
 
         .logo-container {
@@ -121,93 +285,348 @@
         .logo-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         .sidebar-close-btn {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--card-bg-subtle);
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
-            border-radius: 8px;
-            width: 32px;
-            height: 32px;
+            border-radius: 7px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             flex-shrink: 0;
         }
 
         .sidebar-close-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--surface-hover);
             color: var(--text-primary);
-            border-color: rgba(255, 255, 255, 0.18);
+            border-color: var(--border-hover);
         }
 
         .logo-icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--primary-accent), var(--secondary-accent));
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: 'Outfit', sans-serif;
             font-weight: 700;
-            font-size: 20px;
-            color: white;
-            box-shadow: 0 0 15px var(--primary-accent-glow);
+            font-size: 16px;
+            box-shadow: var(--btn-primary-shadow);
+            border: 1px solid var(--border-color);
         }
 
         .logo-text {
             font-family: 'Outfit', sans-serif;
-            font-size: 22px;
-            font-weight: 700;
-            background: linear-gradient(to right, #ffffff, #d1d5db);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 19px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        /* New Chat Button & Linear Session Drawer */
+        .new-chat-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 550;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .new-chat-btn:active {
+            transform: scale(0.985);
+        }
+
+        .new-chat-btn-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .shortcut-badge {
+            font-size: 10.5px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        .sessions-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 4px;
+            flex-shrink: 0;
+        }
+
+        .sessions-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2px;
+            margin-bottom: 2px;
+        }
+
+        .sessions-count-badge {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .sessions-list {
+            max-height: 190px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding-right: 2px;
+        }
+
+        .sessions-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sessions-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sessions-list::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 2px;
+        }
+        .sessions-list::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+
+        .sessions-empty {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            padding: 12px 6px;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .session-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 10px;
+            border-radius: 7px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: transparent;
+            transition: all 0.15s ease;
+            position: relative;
+            user-select: none;
+        }
+
+        .session-item:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-color);
+        }
+
+        .session-item.active {
+            background: var(--card-bg-subtle);
+            border-color: var(--border-hover);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .session-item.active::before {
+            content: "";
+            position: absolute;
+            left: -1px;
+            top: 7px;
+            bottom: 7px;
+            width: 3px;
+            border-radius: 2px;
+            background: var(--primary);
+        }
+
+        .session-item-icon {
+            font-size: 13px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .session-item-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .session-item-title {
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.25;
+        }
+
+        .session-item-time {
+            font-size: 10.5px;
+            color: var(--text-tertiary);
+            line-height: 1;
+        }
+
+        .session-item-delete {
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .session-item:hover .session-item-delete,
+        .session-item-delete:focus {
+            opacity: 0.7;
+        }
+
+        .session-item-delete:hover {
+            opacity: 1;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        .sessions-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            padding: 0 2px;
+        }
+
+        .session-action-btn {
+            flex: 1;
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-tertiary);
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .session-action-btn:hover {
+            color: var(--text-secondary);
+            border-color: var(--border-hover);
+            background: var(--surface-hover);
+        }
+
+        .session-action-danger:hover {
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 14px 0 10px 0;
+            flex-shrink: 0;
         }
 
         .section-title {
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
-            color: var(--text-secondary);
-            letter-spacing: 1.5px;
-            margin-bottom: 12px;
-            margin-top: 24px;
+            color: var(--text-tertiary);
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+            margin-top: 14px;
         }
 
         .control-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 7px;
         }
 
         label {
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 500;
-            color: #d1d5db;
+            color: var(--text-secondary);
         }
 
-        select, input[type="range"], input[type="number"] {
+        select, input[type="text"], input[type="number"] {
             width: 100%;
-            background: rgba(31, 41, 55, 0.5);
-            border: 1px solid var(--border-color);
+            background: var(--glass-control-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
             border-radius: 8px;
-            padding: 10px 14px;
+            padding: 9px 12px;
             color: var(--text-primary);
             font-family: inherit;
-            font-size: 14px;
+            font-size: 13.5px;
             outline: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), var(--glass-bevel);
         }
 
-        select:focus, input[type="number"]:focus {
-            border-color: var(--primary-accent);
-            box-shadow: 0 0 0 2px var(--primary-accent-glow);
+        select:focus, input[type="text"]:focus, input[type="number"]:focus {
+            background: var(--input-bg-focus);
+            border-color: var(--border-active);
+            box-shadow: 0 0 0 2px var(--border-hover), inset 0 1px 1px rgba(0, 0, 0, 0.08);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--text-primary);
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            outline: none;
         }
 
         .range-value {
@@ -223,25 +642,28 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(255, 255, 255, 0.02);
-            padding: 12px;
+            background: var(--glass-control-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 12px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--glass-border);
             cursor: pointer;
             user-select: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            box-shadow: var(--glass-bevel);
         }
 
         .toggle-container:hover {
-            background: rgba(255, 255, 255, 0.04);
-            border-color: rgba(255, 255, 255, 0.12);
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
         }
 
         .switch {
             position: relative;
             display: inline-block;
-            width: 42px;
-            height: 24px;
+            width: 38px;
+            height: 22px;
         }
 
         .switch input {
@@ -257,74 +679,93 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #374151;
-            transition: .3s;
-            border-radius: 24px;
+            background-color: var(--border-color);
+            border: 1px solid var(--border-color);
+            transition: .25s ease;
+            border-radius: 20px;
         }
 
         .slider:before {
             position: absolute;
             content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .3s;
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: var(--text-primary);
+            transition: .25s ease;
             border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
 
         input:checked + .slider {
-            background-color: var(--primary-accent);
+            background-color: var(--btn-primary-bg);
+            border-color: var(--border-hover);
         }
 
         input:checked + .slider:before {
-            transform: translateX(18px);
+            transform: translateX(16px);
+            background-color: var(--btn-primary-text);
         }
 
         .load-btn {
-            background: linear-gradient(135deg, var(--primary-accent), #4f46e5);
-            color: white;
-            border: none;
-            padding: 12px;
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-text);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
             border-radius: 8px;
             font-weight: 600;
+            font-size: 13.5px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: var(--btn-primary-shadow);
             margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: -0.01em;
         }
 
-        .load-btn:hover {
-            opacity: 0.95;
+        .load-btn:hover:not(:disabled) {
+            background: var(--btn-primary-hover);
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
         }
 
-        .load-btn:active {
+        .load-btn:active:not(:disabled) {
             transform: translateY(0);
+        }
+
+        .load-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .status-badge {
             margin-top: auto;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            color: var(--secondary-accent);
-            padding: 12px;
+            background: var(--status-connected-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--status-connected-border);
+            color: var(--status-connected);
+            padding: 10px 12px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12.5px;
             display: flex;
             align-items: center;
             gap: 10px;
             font-weight: 500;
             flex-shrink: 0;
             margin-top: 24px;
+            box-shadow: var(--glass-bevel);
+            transition: all 0.2s ease;
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background-color: var(--secondary-accent);
+            background-color: var(--status-connected);
             border-radius: 50%;
             animation: pulse 1.8s infinite;
         }
@@ -345,21 +786,29 @@
             min-width: 0;
             position: relative;
             overflow: hidden;
+            background: transparent;
+            z-index: 10;
         }
 
         .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 64px;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--glass-border);
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
-            background: rgba(11, 13, 25, 0.55);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: var(--header-bg);
+            backdrop-filter: blur(28px) saturate(190%);
+            -webkit-backdrop-filter: blur(28px) saturate(190%);
             flex-shrink: 0;
             gap: 16px;
-            z-index: 20;
+            z-index: 30;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), var(--glass-bevel);
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
 
         .header-left {
@@ -370,8 +819,8 @@
             flex: 1;
         }
 
-        .sidebar-toggle-btn {
-            background: rgba(255, 255, 255, 0.05);
+        .sidebar-toggle-btn, .header-icon-btn {
+            background: var(--card-bg-subtle);
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
             border-radius: 8px;
@@ -381,18 +830,17 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             flex-shrink: 0;
         }
 
-        .sidebar-toggle-btn:hover {
-            background: rgba(99, 102, 241, 0.15);
+        .sidebar-toggle-btn:hover, .header-icon-btn:hover {
+            background: var(--surface-hover);
             color: var(--text-primary);
-            border-color: var(--primary-accent);
-            box-shadow: 0 0 12px var(--primary-accent-glow);
+            border-color: var(--border-hover);
         }
 
-        .sidebar-toggle-btn:active {
+        .sidebar-toggle-btn:active, .header-icon-btn:active {
             transform: scale(0.96);
         }
 
@@ -412,6 +860,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            letter-spacing: -0.01em;
         }
 
         #header-speculation-badge {
@@ -422,6 +871,10 @@
             white-space: nowrap;
             flex-shrink: 0;
             display: inline-block;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg-subtle);
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
         }
 
         .header-right {
@@ -435,19 +888,21 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 7px;
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
+            font-size: 11.5px;
+            font-weight: 500;
             color: var(--text-secondary);
+            transition: all 0.15s ease;
         }
 
         .header-status-indicator .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
-            background-color: var(--secondary-accent);
+            background-color: var(--status-connected);
             animation: pulse 1.8s infinite;
         }
 
@@ -455,7 +910,7 @@
             flex-grow: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 24px 32px;
+            padding: 82px 32px 115px 32px;
             display: flex;
             flex-direction: column;
             gap: 20px;
@@ -471,7 +926,7 @@
             line-height: 1.6;
             font-size: 15px;
             position: relative;
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .message p {
@@ -486,6 +941,7 @@
             font-family: 'Outfit', sans-serif;
             font-weight: 600;
             line-height: 1.25;
+            color: var(--text-primary);
         }
         .message h1 { font-size: 1.4rem; }
         .message h2 { font-size: 1.25rem; }
@@ -499,26 +955,30 @@
         }
         .message code {
             font-family: 'Fira Code', monospace;
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--code-bg);
             padding: 2px 6px;
-            border-radius: 4px;
+            border-radius: 5px;
             font-size: 0.9em;
-            color: #ec4899;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
         .message pre code {
             color: inherit;
             background: transparent;
             padding: 0;
             font-size: 13.5px;
+            border: none;
         }
         .message a {
-            color: #818cf8;
-            text-decoration: none;
-            border-bottom: 1px dashed #818cf8;
-            transition: color 0.2s ease;
+            color: var(--text-primary);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border-hover);
+            transition: color 0.15s ease, text-decoration-color 0.15s ease;
         }
         .message a:hover {
-            color: #a5b4fc;
+            color: var(--text-secondary);
+            text-decoration-color: var(--text-primary);
         }
         .message hr {
             border: 0;
@@ -527,60 +987,70 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .message.user {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
+            background: var(--card-bg-user);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
             align-self: flex-end;
             border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), var(--glass-bevel);
         }
 
         .message.assistant {
             background: var(--card-bg);
-            border: 1px solid var(--border-color);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), var(--glass-bevel);
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }
 
         /* Thought Block */
         .thought-container {
             background: var(--thought-bg);
-            border-left: 3px solid var(--primary-accent);
-            border-radius: 6px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--text-tertiary);
+            border-radius: 8px;
             margin-bottom: 16px;
-            border: 1px solid var(--thought-border);
-            border-left-width: 4px;
             overflow: hidden;
+            box-shadow: var(--glass-bevel);
         }
 
         .thought-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            padding: 9px 12px;
             cursor: pointer;
             user-select: none;
-            background: rgba(99, 102, 241, 0.03);
-            font-size: 13px;
+            background: var(--card-bg-subtle);
+            font-size: 12.5px;
             font-weight: 600;
-            color: #818cf8;
+            color: var(--text-secondary);
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
         .thought-header:hover {
-            background: rgba(99, 102, 241, 0.06);
+            background: var(--surface-hover);
+            color: var(--text-primary);
         }
 
         .thought-content {
             padding: 12px 14px;
-            font-size: 13.5px;
-            color: #a5b4fc;
+            font-size: 13px;
+            color: var(--text-secondary);
             white-space: pre-wrap;
-            border-top: 1px solid rgba(99, 102, 241, 0.1);
+            border-top: 1px solid var(--thought-border);
             font-family: inherit;
+            line-height: 1.55;
         }
 
         .thought-arrow {
@@ -602,29 +1072,32 @@
             gap: 8px 10px;
             margin-top: 14px;
             padding-top: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid var(--border-color);
             font-size: 11.5px;
             font-weight: 600;
             color: var(--text-secondary);
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
         }
 
         .metric {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            background: rgba(255, 255, 255, 0.03);
+            background: var(--card-bg-subtle);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             padding: 4px 10px;
             border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
             position: relative;
             cursor: help;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            box-shadow: var(--glass-bevel);
         }
 
         .metric:hover {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(255, 255, 255, 0.15);
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
         }
 
         .metric-icon {
@@ -632,18 +1105,18 @@
         }
 
         .metric-val {
-            color: #38bdf8;
+            color: var(--text-primary);
             font-weight: 700;
             font-family: 'Fira Code', monospace;
         }
 
         .metric-accent {
-            background: rgba(16, 185, 129, 0.08);
-            border-color: rgba(16, 185, 129, 0.25);
+            background: var(--status-connected-bg);
+            border-color: var(--status-connected-border);
         }
 
         .metric-accent .metric-val {
-            color: #34d399;
+            color: var(--status-connected);
         }
 
         /* Metric Tooltips */
@@ -653,10 +1126,10 @@
             bottom: 130%;
             left: 50%;
             transform: translateX(-50%) translateY(4px);
-            background: rgba(18, 22, 41, 0.95);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
             color: var(--text-primary);
             padding: 8px 12px;
             border-radius: 6px;
@@ -669,11 +1142,11 @@
             max-width: 220px;
             line-height: 1.4;
             text-align: center;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
             z-index: 100;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: opacity 0.15s ease, transform 0.15s ease;
         }
 
         .metric:hover::after {
@@ -694,17 +1167,26 @@
             width: 100%;
             height: auto;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
             display: block;
+            cursor: zoom-in;
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+
+        .generated-image:hover {
+            transform: scale(1.015);
+            border-color: var(--border-hover);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
         }
 
         .revised-prompt-tag {
             font-size: 11.5px;
             line-height: 1.45;
             color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.03);
-            border-left: 3px solid #38bdf8;
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--text-secondary);
             padding: 8px 12px;
             border-radius: 0 6px 6px 0;
         }
@@ -719,8 +1201,8 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
             color: var(--text-primary);
             padding: 5px 12px;
             border-radius: 6px;
@@ -728,23 +1210,171 @@
             font-weight: 500;
             text-decoration: none;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
 
         .img-action-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: #38bdf8;
-            color: #38bdf8;
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        /* Full-Screen Glassmorphic Image Lightbox */
+        .image-lightbox-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s ease;
+        }
+
+        .image-lightbox-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+
+        .lightbox-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 7, 12, 0.84);
+            backdrop-filter: blur(28px) saturate(190%);
+            -webkit-backdrop-filter: blur(28px) saturate(190%);
+            z-index: 1;
+            cursor: zoom-out;
+        }
+
+        :root[data-theme="light"] .lightbox-backdrop {
+            background: rgba(240, 243, 248, 0.88);
+        }
+
+        .lightbox-toolbar {
+            position: absolute;
+            top: max(16px, env(safe-area-inset-top));
+            left: max(16px, env(safe-area-inset-left));
+            right: max(16px, env(safe-area-inset-right));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .lightbox-caption {
+            pointer-events: auto;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            max-width: 65%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), var(--glass-bevel);
+        }
+
+        .lightbox-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .lightbox-btn {
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            height: 38px;
+            padding: 0 14px;
+            border-radius: 19px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 12.5px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), var(--glass-bevel);
+        }
+
+        .lightbox-btn:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        .lightbox-btn:active {
+            transform: scale(0.96);
+        }
+
+        .lightbox-close-btn {
+            width: 38px;
+            padding: 0;
+            border-radius: 50%;
+        }
+
+        .lightbox-content {
+            position: relative;
+            z-index: 5;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 72px 24px 24px 24px;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .lightbox-image {
+            max-width: 90vw;
+            max-height: 84vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border-prominent);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), var(--glass-bevel);
+            transform: scale(0.95);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.2s ease, max-height 0.2s ease;
+            user-select: none;
+            cursor: zoom-in;
+        }
+
+        .lightbox-image.zoomed {
+            max-width: none;
+            max-height: none;
+            cursor: zoom-out;
+            transform: scale(1);
+        }
+
+        .image-lightbox-modal.active .lightbox-image:not(.zoomed) {
+            transform: scale(1);
         }
 
         /* Code block styling */
         pre {
-            background: rgba(0, 0, 0, 0.3) !important;
+            background: var(--code-bg) !important;
             padding: 16px;
             border-radius: 8px;
             overflow-x: auto;
             margin: 12px 0;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
         }
 
         code {
@@ -754,25 +1384,35 @@
 
         /* Input Area */
         .input-container {
-            padding: 24px 32px 32px 32px;
-            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 32px 24px 32px;
+            background: linear-gradient(to top, var(--bg-base) 20%, rgba(0, 0, 0, 0) 100%);
+            z-index: 30;
+            pointer-events: none;
+        }
+
+        .input-wrapper, #attached-image-container {
+            pointer-events: auto;
         }
 
         .input-wrapper {
             position: relative;
-            background: rgba(25, 30, 56, 0.65);
-            border: 1px solid var(--border-color);
+            background: var(--glass-input-bg);
+            border: 1px solid var(--glass-border-prominent);
             border-radius: 14px;
             padding: 10px 14px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
+            backdrop-filter: blur(28px) saturate(200%);
+            -webkit-backdrop-filter: blur(28px) saturate(200%);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), var(--glass-bevel);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .input-wrapper:focus-within {
-            border-color: var(--primary-accent);
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), 0 8px 32px rgba(0, 0, 0, 0.2);
+            border-color: var(--border-active);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-active), var(--glass-bevel);
         }
 
         textarea {
@@ -796,21 +1436,20 @@
             width: 38px;
             height: 38px;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
             color: var(--text-secondary);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
 
         .upload-btn:hover:not(:disabled) {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: var(--primary-accent);
-            color: white;
-            transform: scale(1.03);
+            background: var(--surface-hover);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
         }
 
         .upload-btn:disabled {
@@ -821,14 +1460,14 @@
         .attached-image-preview {
             display: inline-flex;
             align-items: center;
-            background: rgba(30, 41, 59, 0.85);
-            border: 1px solid rgba(99, 102, 241, 0.4);
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 6px 12px;
             margin-bottom: 8px;
             gap: 10px;
             width: fit-content;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             animation: fadeIn 0.2s ease;
         }
 
@@ -837,7 +1476,7 @@
             height: 34px;
             border-radius: 6px;
             object-fit: cover;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid var(--border-color);
         }
 
         .attached-info {
@@ -849,7 +1488,7 @@
         .attached-label {
             font-size: 10.5px;
             font-weight: 600;
-            color: #818cf8;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -864,8 +1503,8 @@
         }
 
         .attached-close-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: none;
+            background: var(--card-bg-subtle);
+            border: 1px solid var(--border-color);
             color: var(--text-secondary);
             border-radius: 50%;
             width: 20px;
@@ -875,13 +1514,14 @@
             justify-content: center;
             font-size: 11px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
             margin-left: 4px;
         }
 
         .attached-close-btn:hover {
-            background: rgba(239, 68, 68, 0.35);
-            color: #f87171;
+            background: var(--surface-hover);
+            color: var(--text-primary);
+            border-color: var(--border-hover);
         }
 
         .send-btn {
@@ -891,23 +1531,28 @@
             width: 38px;
             height: 38px;
             border-radius: 8px;
-            background: var(--primary-accent);
-            border: none;
-            color: white;
+            background: var(--btn-primary-bg);
+            border: 1px solid var(--border-color);
+            color: var(--btn-primary-text);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: var(--btn-primary-shadow);
         }
 
-        .send-btn:hover {
-            opacity: 0.95;
-            transform: scale(1.03);
+        .send-btn:hover:not(:disabled) {
+            background: var(--btn-primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .send-btn:active:not(:disabled) {
+            transform: translateY(0);
         }
 
         .send-btn:disabled {
-            background: #374151;
+            opacity: 0.4;
             cursor: not-allowed;
             transform: none;
         }
@@ -941,7 +1586,7 @@
             border-collapse: collapse;
             margin: 16px 0;
             font-size: 14px;
-            background: rgba(255, 255, 255, 0.015);
+            background: var(--card-bg-subtle);
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid var(--border-color);
@@ -951,16 +1596,16 @@
             border: 1px solid var(--border-color);
         }
         .message th {
-            background: rgba(99, 102, 241, 0.15);
-            color: #a5b4fc;
+            background: var(--surface-hover);
+            color: var(--text-primary);
             font-family: 'Outfit', sans-serif;
             font-weight: 600;
         }
         .message tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.01);
+            background: var(--card-bg-subtle);
         }
         .message tr:hover {
-            background: rgba(99, 102, 241, 0.04);
+            background: var(--surface-active);
         }
 
         /* ==========================================================================
@@ -985,7 +1630,7 @@
                 transform: translateX(-100%);
                 transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
                 box-shadow: none;
-                border-right: 1px solid rgba(255, 255, 255, 0.12);
+                border-right: 1px solid var(--border-color);
                 padding: max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)) 18px;
             }
 
@@ -1010,9 +1655,29 @@
                 gap: 10px;
             }
 
-            .sidebar-toggle-btn {
+            .sidebar-toggle-btn, .header-icon-btn {
                 width: 38px;
                 height: 38px;
+            }
+
+            .shortcut-badge {
+                display: none;
+            }
+
+            .session-item {
+                padding: 9px 12px;
+                min-height: 42px;
+            }
+
+            .session-item-delete {
+                opacity: 0.65;
+                width: 26px;
+                height: 26px;
+            }
+
+            .new-chat-btn {
+                padding: 10px 12px;
+                min-height: 42px;
             }
 
             .header-title {
@@ -1038,7 +1703,7 @@
 
             /* Chat layout on mobile */
             .chat-container {
-                padding: 12px 10px;
+                padding: calc(64px + env(safe-area-inset-top)) 10px calc(80px + env(safe-area-inset-bottom)) 10px;
                 gap: 14px;
             }
 
@@ -1139,6 +1804,39 @@
                 min-height: 36px;
             }
 
+            /* Lightbox on mobile */
+            .lightbox-toolbar {
+                top: max(10px, env(safe-area-inset-top));
+                left: max(10px, env(safe-area-inset-left));
+                right: max(10px, env(safe-area-inset-right));
+                gap: 8px;
+            }
+
+            .lightbox-caption {
+                max-width: 52%;
+                font-size: 11.5px;
+                padding: 6px 12px;
+            }
+
+            .lightbox-btn span {
+                display: none;
+            }
+
+            .lightbox-btn {
+                width: 38px;
+                height: 38px;
+                padding: 0;
+            }
+
+            .lightbox-content {
+                padding: 60px 12px 20px 12px;
+            }
+
+            .lightbox-image {
+                max-width: 95vw;
+                max-height: 82vh;
+            }
+
             /* Input container on mobile */
             .input-container {
                 padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
@@ -1209,21 +1907,49 @@
                 --sidebar-width: 280px;
             }
             .chat-container {
-                padding: 20px;
+                padding: 76px 20px 105px 20px;
             }
             .message {
                 max-width: 86%;
             }
             .input-container {
-                padding: 16px 20px 24px 20px;
+                padding: 12px 20px 20px 20px;
             }
         }
     </style>
 </head>
 <body>
 
+    <!-- Ambient Background Light Mesh for High-Fidelity Frosted Glass Refraction -->
+    <div class="glass-ambient-sphere glass-sphere-1"></div>
+    <div class="glass-ambient-sphere glass-sphere-2"></div>
+    <div class="glass-ambient-sphere glass-sphere-3"></div>
+
     <!-- Sidebar Backdrop for mobile drawer -->
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Full-Screen Image Lightbox Modal -->
+    <div id="image-lightbox-modal" class="image-lightbox-modal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="lightbox-backdrop" id="lightbox-backdrop"></div>
+        <div class="lightbox-toolbar">
+            <div class="lightbox-caption" id="lightbox-caption"></div>
+            <div class="lightbox-actions">
+                <a id="lightbox-download-btn" href="#" download="generated_image.png" class="lightbox-btn" title="Download Image">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Download</span>
+                </a>
+                <a id="lightbox-open-tab-btn" href="#" target="_blank" rel="noopener noreferrer" class="lightbox-btn" title="Open Original in New Tab">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>
+                <button type="button" class="lightbox-btn lightbox-close-btn" id="lightbox-close-btn" title="Close (Esc)" aria-label="Close Fullscreen View">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+        <div class="lightbox-content" id="lightbox-content">
+            <img id="lightbox-image" class="lightbox-image" src="" alt="Full view image" />
+        </div>
+    </div>
 
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
@@ -1239,6 +1965,40 @@
                 </svg>
             </button>
         </div>
+
+        <!-- New Chat & Sessions Drawer -->
+        <button type="button" class="new-chat-btn" id="new-chat-btn">
+            <span class="new-chat-btn-left">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>New Chat</span>
+            </span>
+            <kbd class="shortcut-badge">⌘K</kbd>
+        </button>
+
+        <div class="sessions-section" id="sessions-section">
+            <div class="sessions-header">
+                <span class="section-title" style="margin: 0;">Recent Chats</span>
+                <span class="sessions-count-badge" id="sessions-count-badge">0</span>
+            </div>
+            <div class="sessions-list" id="sessions-list">
+                <!-- Populated dynamically from localStorage -->
+            </div>
+            <div class="sessions-actions">
+                <button type="button" class="session-action-btn" id="export-chat-btn" title="Export Current Chat as Markdown">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Export</span>
+                </button>
+                <button type="button" class="session-action-btn session-action-danger" id="clear-sessions-btn" title="Clear All Chat History">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span>Clear All</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
 
         <div class="section-title">Model Management</div>
         
@@ -1285,7 +2045,7 @@
 
         <button class="load-btn" id="load-model-btn">Load Model</button>
 
-        <div id="image-model-notice" style="display: none; margin-top: 14px; padding: 10px 12px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; font-size: 11.5px; color: #d8b4fe; line-height: 1.45;">
+        <div id="image-model-notice" style="display: none; margin-top: 14px; padding: 10px 12px; background: var(--card-bg-subtle); border: 1px solid var(--border-hover); border-radius: 8px; font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;">
             🎨 <b>Image Model Selected:</b> KV Cache, MTP Speculation & Reasoning tokens are bypassed for diffusion flow matching.
         </div>
 
@@ -1335,7 +2095,7 @@
             <div class="toggle-container" id="reasoning-toggle-container" title="Click to toggle internal reasoning thoughts (<think> blocks)">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="toggle-label" style="font-size: 13px; font-weight: 500; color: var(--text-primary); user-select: none;">Reasoning Mode</span>
-                    <span id="reasoning-state-badge" style="font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); user-select: none;">ON</span>
+                    <span id="reasoning-state-badge" style="font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; background: var(--surface-hover); color: var(--text-primary); border: 1px solid var(--border-hover); user-select: none;">ON</span>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="reasoning-checkbox" checked>
@@ -1368,6 +2128,28 @@
                 </div>
             </div>
             <div class="header-right">
+                <button type="button" class="header-icon-btn" id="header-new-chat-btn" title="New Chat (⌘K)" aria-label="New Chat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button type="button" class="header-icon-btn" id="theme-toggle-btn" title="Toggle Theme (Light / Dark)" aria-label="Toggle Theme">
+                    <svg id="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg id="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
                 <div class="header-status-indicator" id="header-status-indicator" title="Server Status">
                     <div class="status-dot" id="header-status-dot"></div>
                     <span class="status-label" id="header-status-label" style="font-weight: 500;">Connected</span>
@@ -1415,7 +2197,19 @@
         let cachedModelsList = [];
         let chatHistory = [];
 
+        // Persistent Chat Session Store (Option 2)
+        const SESSIONS_STORAGE_KEY = "tpm_mlx_chat_sessions_v1";
+        const MAX_SESSIONS = 40;
+        let chatSessions = [];
+        let activeSessionId = null;
+
         // DOM elements
+        const newChatBtn = document.getElementById("new-chat-btn");
+        const headerNewChatBtn = document.getElementById("header-new-chat-btn");
+        const exportChatBtn = document.getElementById("export-chat-btn");
+        const clearSessionsBtn = document.getElementById("clear-sessions-btn");
+        const sessionsListEl = document.getElementById("sessions-list");
+        const sessionsCountBadge = document.getElementById("sessions-count-badge");
         const modelSelect = document.getElementById("model-select");
         const draftSelect = document.getElementById("draft-select");
         const customModelGroup = document.getElementById("custom-model-group");
@@ -1442,6 +2236,62 @@
         const attachedImageThumb = document.getElementById("attached-image-thumb");
         const attachedImageName = document.getElementById("attached-image-name");
         let attachedReferenceImageUrl = null;
+
+        // Theme Engine (Linear Obsidian Dark / Porcelain Light)
+        const THEME_STORAGE_KEY = "tpm_mlx_theme";
+        const themeToggleBtn = document.getElementById("theme-toggle-btn");
+        const themeIconSun = document.getElementById("theme-icon-sun");
+        const themeIconMoon = document.getElementById("theme-icon-moon");
+
+        function getPreferredTheme() {
+            try {
+                const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+                if (savedTheme === "light" || savedTheme === "dark") {
+                    return savedTheme;
+                }
+            } catch(e) {}
+            return (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+        }
+
+        function applyTheme(theme) {
+            if (theme === "light") {
+                document.documentElement.setAttribute("data-theme", "light");
+                if (themeIconSun) themeIconSun.style.display = "block";
+                if (themeIconMoon) themeIconMoon.style.display = "none";
+                if (themeToggleBtn) themeToggleBtn.title = "Switch to Dark Mode (Obsidian)";
+            } else {
+                document.documentElement.removeAttribute("data-theme");
+                if (themeIconSun) themeIconSun.style.display = "none";
+                if (themeIconMoon) themeIconMoon.style.display = "block";
+                if (themeToggleBtn) themeToggleBtn.title = "Switch to Light Mode (Porcelain)";
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+            const newTheme = currentTheme === "light" ? "dark" : "light";
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+            } catch(e) {}
+            applyTheme(newTheme);
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener("click", toggleTheme);
+        }
+
+        if (window.matchMedia) {
+            window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
+                try {
+                    if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+                        applyTheme(e.matches ? "light" : "dark");
+                    }
+                } catch(err) {}
+            });
+        }
+
+        // Initialize theme immediately
+        applyTheme(getPreferredTheme());
 
         // Navigation Sidebar & Mobile Drawer Elements
         const sidebar = document.getElementById("sidebar");
@@ -1474,8 +2324,8 @@
                     statusBadge.style.borderColor = "rgba(251, 191, 36, 0.25)";
                     statusBadge.style.color = "#fbbf24";
                 } else {
-                    statusBadge.style.borderColor = "rgba(16, 185, 129, 0.25)";
-                    statusBadge.style.color = "var(--secondary-accent)";
+                    statusBadge.style.borderColor = "var(--status-connected-border)";
+                    statusBadge.style.color = "var(--status-connected)";
                 }
             }
         }
@@ -1545,6 +2395,97 @@
                 document.body.classList.add("sidebar-collapsed");
             }
         } catch(e) {}
+
+        // Full-Screen Image Lightbox
+        const imageLightboxModal = document.getElementById("image-lightbox-modal");
+        const lightboxBackdrop = document.getElementById("lightbox-backdrop");
+        const lightboxImage = document.getElementById("lightbox-image");
+        const lightboxCaption = document.getElementById("lightbox-caption");
+        const lightboxDownloadBtn = document.getElementById("lightbox-download-btn");
+        const lightboxOpenTabBtn = document.getElementById("lightbox-open-tab-btn");
+        const lightboxCloseBtn = document.getElementById("lightbox-close-btn");
+        const lightboxContent = document.getElementById("lightbox-content");
+
+        function openImageLightbox(src, caption = "") {
+            if (!imageLightboxModal || !lightboxImage) return;
+            lightboxImage.src = src;
+            lightboxImage.alt = caption || "Generated Image";
+            lightboxImage.classList.remove("zoomed");
+            if (lightboxContent) {
+                lightboxContent.scrollTop = 0;
+                lightboxContent.scrollLeft = 0;
+            }
+
+            if (lightboxCaption) {
+                lightboxCaption.textContent = caption || "";
+                lightboxCaption.title = caption || "";
+                lightboxCaption.style.display = caption ? "block" : "none";
+            }
+
+            if (lightboxDownloadBtn) {
+                lightboxDownloadBtn.href = src;
+            }
+            if (lightboxOpenTabBtn) {
+                lightboxOpenTabBtn.href = src;
+            }
+
+            imageLightboxModal.classList.add("active");
+            imageLightboxModal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeImageLightbox() {
+            if (!imageLightboxModal) return;
+            imageLightboxModal.classList.remove("active");
+            imageLightboxModal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+            if (lightboxImage) {
+                lightboxImage.classList.remove("zoomed");
+            }
+        }
+
+        if (lightboxBackdrop) {
+            lightboxBackdrop.addEventListener("click", closeImageLightbox);
+        }
+        if (lightboxCloseBtn) {
+            lightboxCloseBtn.addEventListener("click", closeImageLightbox);
+        }
+
+        // Clicking on the lightbox content area outside the image also closes it
+        if (lightboxContent) {
+            lightboxContent.addEventListener("click", (e) => {
+                if (e.target === lightboxContent) {
+                    closeImageLightbox();
+                }
+            });
+        }
+
+        // Clicking on the image toggles natural size zoom
+        if (lightboxImage) {
+            lightboxImage.addEventListener("click", (e) => {
+                e.stopPropagation();
+                lightboxImage.classList.toggle("zoomed");
+            });
+        }
+
+        // Close lightbox on Escape key
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && imageLightboxModal && imageLightboxModal.classList.contains("active")) {
+                closeImageLightbox();
+            }
+        });
+
+        // Delegated click listener for all generated images (past, current, and dynamic)
+        document.addEventListener("click", (e) => {
+            const imgTarget = e.target.closest(".generated-image");
+            if (imgTarget && !e.target.closest("#image-lightbox-modal")) {
+                const src = imgTarget.getAttribute("src");
+                const caption = imgTarget.getAttribute("alt") || "";
+                if (src) {
+                    openImageLightbox(src, caption);
+                }
+            }
+        });
 
         function copyImageLink(btn, relUrl) {
             const fullUrl = window.location.origin + relUrl;
@@ -1696,7 +2637,7 @@
             const lower = name.toLowerCase();
             return lower.includes("flux") || 
                    lower.includes("diffusion") || 
-                   lower.includes("bonsai") || 
+                   (lower.includes("bonsai") && lower.includes("image")) || 
                    lower.includes("klein") ||
                    lower.includes("sdxl") ||
                    lower.includes("stable-diffusion") ||
@@ -1722,28 +2663,28 @@
                 if (isImage) {
                     headerSpeculationBadge.textContent = isMobile ? "🎨 Image Gen" : "🎨 Flow Matching Image Generator";
                     headerSpeculationBadge.title = "Native Diffusion Flow Matching Image Generator on MLX";
-                    headerSpeculationBadge.style.background = "rgba(168, 85, 247, 0.18)";
-                    headerSpeculationBadge.style.color = "#c084fc";
-                    headerSpeculationBadge.style.borderColor = "rgba(168, 85, 247, 0.4)";
+                    headerSpeculationBadge.style.background = "var(--card-bg-subtle)";
+                    headerSpeculationBadge.style.color = "var(--text-primary)";
+                    headerSpeculationBadge.style.borderColor = "var(--border-hover)";
                 } else if (specMode === "mtp" || hasMtp) {
                     const tokensText = draftTokens ? `${draftTokens} Draft Tokens` : "Active";
                     headerSpeculationBadge.textContent = isMobile ? `⚡ MTP (${draftTokens || 3} tok)` : `⚡ MTP Speculation (${tokensText}) [${(backend || 'LLM').toUpperCase()}]`;
                     headerSpeculationBadge.title = `MTP Speculative Decoding with ${draftTokens || 3} tokens lookahead`;
-                    headerSpeculationBadge.style.background = "rgba(16, 185, 129, 0.15)";
-                    headerSpeculationBadge.style.color = "#34d399";
-                    headerSpeculationBadge.style.borderColor = "rgba(16, 185, 129, 0.35)";
+                    headerSpeculationBadge.style.background = "var(--status-connected-bg)";
+                    headerSpeculationBadge.style.color = "var(--status-connected)";
+                    headerSpeculationBadge.style.borderColor = "var(--status-connected-border)";
                 } else if (specMode === "draft" && draftName) {
                     headerSpeculationBadge.textContent = isMobile ? "⚡ Draft Spec" : `⚡ Draft Speculation [${(backend || 'LLM').toUpperCase()}]`;
                     headerSpeculationBadge.title = `Draft Speculation via ${draftName}`;
-                    headerSpeculationBadge.style.background = "rgba(99, 102, 241, 0.15)";
-                    headerSpeculationBadge.style.color = "#a5b4fc";
-                    headerSpeculationBadge.style.borderColor = "rgba(99, 102, 241, 0.35)";
+                    headerSpeculationBadge.style.background = "var(--surface-hover)";
+                    headerSpeculationBadge.style.color = "var(--text-primary)";
+                    headerSpeculationBadge.style.borderColor = "var(--border-hover)";
                 } else {
                     headerSpeculationBadge.textContent = isMobile ? "Standard" : `Standard Decoding [${(backend || 'LLM').toUpperCase()}]`;
                     headerSpeculationBadge.title = "Standard autoregressive single-token decoding";
-                    headerSpeculationBadge.style.background = "rgba(107, 114, 128, 0.15)";
-                    headerSpeculationBadge.style.color = "#9ca3af";
-                    headerSpeculationBadge.style.borderColor = "rgba(107, 114, 128, 0.25)";
+                    headerSpeculationBadge.style.background = "var(--card-bg-subtle)";
+                    headerSpeculationBadge.style.color = "var(--text-secondary)";
+                    headerSpeculationBadge.style.borderColor = "var(--border-color)";
                 }
             } else {
                 headerSpeculationBadge.style.display = "none";
@@ -2070,23 +3011,31 @@
                     }
                     
                     const isImg = res.is_image || (res.backend === "image") || isImageModelName(activeModel);
-                    if (isImg) {
-                        userInput.placeholder = "Type an image prompt to generate... (e.g. 'A futuristic city in the clouds')";
-                        chatContainer.innerHTML = `
-                            <div class="message assistant">
-                                Successfully loaded 🎨 <strong>${activeModel}</strong> in native <strong>Diffusion Flow-Matching Mode</strong>. Enter any visual description to generate images directly on Apple Silicon!
-                            </div>
-                        `;
-                    } else {
-                        userInput.placeholder = isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)";
-                        const specInfo = res.speculation_mode === "mtp" ? `with <strong>MTP Acceleration (${res.num_draft_tokens || 3} tokens)</strong>` : (res.draft_model ? `with draft assistant <strong>${res.draft_model}</strong>` : "in standard single-token mode");
-                        chatContainer.innerHTML = `
-                            <div class="message assistant">
-                                Successfully loaded <strong>${activeModel}</strong> ${specInfo}. Ready for optimized Apple Silicon inference!
-                            </div>
-                        `;
+                    userInput.placeholder = isImg 
+                        ? "Type an image prompt to generate... (e.g. 'A futuristic city in the clouds')" 
+                        : (isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)");
+
+                    const currentSession = getActiveSession();
+                    if (currentSession) {
+                        currentSession.model = activeModel;
+                        if (isImg && currentSession.messages.length === 0) {
+                            currentSession.type = "image";
+                        }
+                        saveSessionsState();
+                        renderSessionsList();
+
+                        if (currentSession.messages.length === 0) {
+                            renderSessionMessages(currentSession.id);
+                        } else {
+                            const specInfo = res.speculation_mode === "mtp" ? `with MTP Acceleration (${res.num_draft_tokens || 3} tokens)` : (res.draft_model ? `with draft assistant ${res.draft_model}` : "in standard single-token mode");
+                            const noticeDiv = document.createElement("div");
+                            noticeDiv.className = "message assistant";
+                            noticeDiv.style.opacity = "0.85";
+                            noticeDiv.innerHTML = `Switched model to <strong>${escapeHtml(activeModel)}</strong> ${specInfo}.`;
+                            chatContainer.appendChild(noticeDiv);
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
                     }
-                    chatHistory = [];
                 } else {
                     alert("Error loading model: " + (res.detail || JSON.stringify(res)));
                     updateServerStatus("failed", "#ef4444", "Load Failed");
@@ -2109,14 +3058,14 @@
             if (!reasoningStateBadge) return;
             if (reasoningCheckbox.checked) {
                 reasoningStateBadge.textContent = "ON";
-                reasoningStateBadge.style.background = "rgba(99, 102, 241, 0.2)";
-                reasoningStateBadge.style.color = "#a5b4fc";
-                reasoningStateBadge.style.borderColor = "rgba(99, 102, 241, 0.3)";
+                reasoningStateBadge.style.background = "var(--surface-hover)";
+                reasoningStateBadge.style.color = "var(--text-primary)";
+                reasoningStateBadge.style.borderColor = "var(--border-hover)";
             } else {
                 reasoningStateBadge.textContent = "OFF";
-                reasoningStateBadge.style.background = "rgba(107, 114, 128, 0.2)";
-                reasoningStateBadge.style.color = "#9ca3af";
-                reasoningStateBadge.style.borderColor = "rgba(107, 114, 128, 0.3)";
+                reasoningStateBadge.style.background = "var(--card-bg-subtle)";
+                reasoningStateBadge.style.color = "var(--text-tertiary)";
+                reasoningStateBadge.style.borderColor = "var(--border-color)";
             }
         }
 
@@ -2460,18 +3409,513 @@
             return parsedHTML;
         }
 
+        /* ==========================================================================
+           Persistent Chat Session Store & Rehydration Engine (Option 2)
+           ========================================================================== */
+        
+        function formatRelativeTime(timestamp) {
+            if (!timestamp) return "";
+            const diffMs = Date.now() - timestamp;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHr = Math.floor(diffMin / 60);
+            const diffDays = Math.floor(diffHr / 24);
+
+            if (diffSec < 45) return "Just now";
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHr < 24) return `${diffHr}h ago`;
+            if (diffDays === 1) return "Yesterday";
+            if (diffDays < 7) return `${diffDays}d ago`;
+            const d = new Date(timestamp);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+        }
+
+        function getActiveSession() {
+            if (!activeSessionId) return null;
+            return chatSessions.find(s => s.id === activeSessionId) || null;
+        }
+
+        function saveSessionsState() {
+            try {
+                if (chatSessions.length > MAX_SESSIONS) {
+                    chatSessions = chatSessions.slice(0, MAX_SESSIONS);
+                }
+                const data = {
+                    activeSessionId,
+                    sessions: chatSessions
+                };
+                localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(data));
+            } catch (err) {
+                console.warn("Storage quota warning, pruning old sessions:", err);
+                try {
+                    chatSessions = chatSessions.slice(0, 15);
+                    const data = { activeSessionId, sessions: chatSessions };
+                    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(data));
+                } catch (e) {
+                    console.error("Failed to save sessions to localStorage:", e);
+                }
+            }
+        }
+
+        function loadSessionsState() {
+            try {
+                const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.sessions)) {
+                        chatSessions = parsed.sessions;
+                        activeSessionId = parsed.activeSessionId || null;
+                    }
+                }
+            } catch (err) {
+                console.warn("Could not load sessions from localStorage:", err);
+                chatSessions = [];
+                activeSessionId = null;
+            }
+
+            if (chatSessions.length === 0) {
+                createNewSession(false);
+            } else {
+                if (!activeSessionId || !chatSessions.some(s => s.id === activeSessionId)) {
+                    activeSessionId = chatSessions[0].id;
+                }
+                renderSessionsList();
+                renderSessionMessages(activeSessionId);
+            }
+        }
+
+        function createNewSession(switchToIt = true) {
+            const isImg = isImageModelName(activeModel);
+            const newSession = {
+                id: "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+                title: "New Chat",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                model: activeModel || "",
+                type: isImg ? "image" : "chat",
+                messages: []
+            };
+
+            chatSessions.unshift(newSession);
+
+            if (switchToIt) {
+                activeSessionId = newSession.id;
+                saveSessionsState();
+                renderSessionsList();
+                renderSessionMessages(newSession.id);
+                if (userInput) {
+                    userInput.value = "";
+                    userInput.style.height = "";
+                    if (!isMobileView()) userInput.focus();
+                }
+                if (isMobileView() && typeof closeSidebar === "function") {
+                    closeSidebar();
+                }
+            } else {
+                activeSessionId = newSession.id;
+                saveSessionsState();
+                renderSessionsList();
+                renderSessionMessages(newSession.id);
+            }
+            return newSession;
+        }
+
+        function switchSession(sessionId) {
+            if (sessionId === activeSessionId) {
+                if (isMobileView() && typeof closeSidebar === "function") {
+                    closeSidebar();
+                }
+                return;
+            }
+            const target = chatSessions.find(s => s.id === sessionId);
+            if (!target) return;
+
+            activeSessionId = sessionId;
+            saveSessionsState();
+            renderSessionsList();
+            renderSessionMessages(sessionId);
+
+            if (isMobileView() && typeof closeSidebar === "function") {
+                closeSidebar();
+            }
+            if (userInput && !isMobileView()) {
+                userInput.focus();
+            }
+        }
+
+        function deleteSession(sessionId, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+
+            const idx = chatSessions.findIndex(s => s.id === sessionId);
+            if (idx === -1) return;
+
+            chatSessions.splice(idx, 1);
+
+            if (chatSessions.length === 0) {
+                createNewSession(true);
+            } else if (activeSessionId === sessionId) {
+                activeSessionId = chatSessions[0].id;
+                saveSessionsState();
+                renderSessionsList();
+                renderSessionMessages(activeSessionId);
+            } else {
+                saveSessionsState();
+                renderSessionsList();
+            }
+        }
+
+        function clearAllSessions() {
+            if (chatSessions.length === 0) return;
+            if (!confirm("Are you sure you want to delete all chat history? This cannot be undone.")) {
+                return;
+            }
+            chatSessions = [];
+            try {
+                localStorage.removeItem(SESSIONS_STORAGE_KEY);
+            } catch (e) {}
+            createNewSession(true);
+        }
+
+        function exportCurrentChat() {
+            const session = getActiveSession();
+            if (!session || !session.messages || session.messages.length === 0) {
+                alert("Current chat session is empty. Nothing to export.");
+                return;
+            }
+
+            let md = `# TPM-MLX Session: ${session.title || "Chat"}\n\n`;
+            md += `- **Date**: ${new Date(session.createdAt || Date.now()).toLocaleString()}\n`;
+            if (session.model) md += `- **Model**: ${session.model}\n`;
+            md += `\n---\n\n`;
+
+            for (const msg of session.messages) {
+                const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : "";
+                const roleName = msg.role === "user" ? "👤 User" : "🤖 Assistant";
+                md += `### ${roleName} ${timeStr ? `(${timeStr})` : ""}\n\n`;
+
+                if (msg.isImageGen) {
+                    const fullImgUrl = msg.imageUrl && (msg.imageUrl.startsWith("http") ? msg.imageUrl : `${window.location.origin}${msg.imageUrl}`);
+                    md += `![Generated Image](${fullImgUrl})\n\n`;
+                    if (msg.imagePrompt) md += `*Prompt*: ${msg.imagePrompt}\n\n`;
+                    if (msg.revisedPrompt) md += `*Visual Prompt*: ${msg.revisedPrompt}\n\n`;
+                    if (msg.metrics) {
+                        md += `*Metrics*: Latency: ${msg.metrics.generation_time_s}s | Steps: ${msg.metrics.steps} | Size: ${msg.metrics.width}x${msg.metrics.height}\n\n`;
+                    }
+                } else {
+                    let text = "";
+                    if (typeof msg.content === "string") {
+                        text = msg.content;
+                    } else if (Array.isArray(msg.content)) {
+                        const txtObj = msg.content.find(p => p.type === "text");
+                        text = txtObj ? txtObj.text : JSON.stringify(msg.content);
+                    }
+                    md += `${text}\n\n`;
+                    if (msg.metrics && msg.metrics.tps !== undefined) {
+                        md += `*Metrics*: Speed: ${msg.metrics.tps} tok/s | TTFT: ${msg.metrics.ttft_ms} ms\n\n`;
+                    }
+                }
+                md += `---\n\n`;
+            }
+
+            const safeTitle = (session.title || "chat_history").replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+            const filename = `${safeTitle}_${Date.now()}.md`;
+            const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function autoTitleSession(session, userPrompt, isImage) {
+            if (!session || (session.title !== "New Chat" && session.title !== "Untitled")) return;
+            let clean = (userPrompt || "").trim();
+            if (isImage) {
+                if (clean.startsWith("/image")) clean = clean.slice(6).trim();
+                if (clean.startsWith("/edit")) clean = clean.slice(5).trim();
+                session.type = "image";
+                session.title = clean ? (clean.length > 32 ? clean.slice(0, 32).trim() + "…" : clean) : "Generated Image";
+            } else {
+                session.type = "chat";
+                clean = clean.replace(/^#+\s*/, '').replace(/\n+/g, ' ').trim();
+                if (clean.length > 36) {
+                    const sub = clean.slice(0, 36);
+                    const lastSpace = sub.lastIndexOf(' ');
+                    clean = (lastSpace > 20 ? sub.slice(0, lastSpace) : sub).trim() + "…";
+                }
+                session.title = clean || "New Chat";
+            }
+            session.updatedAt = Date.now();
+            saveSessionsState();
+            renderSessionsList();
+        }
+
+        function renderSessionsList() {
+            if (!sessionsListEl) return;
+            if (sessionsCountBadge) {
+                sessionsCountBadge.textContent = chatSessions.length;
+            }
+
+            if (chatSessions.length === 0) {
+                sessionsListEl.innerHTML = `<div class="sessions-empty">No previous chats</div>`;
+                return;
+            }
+
+            sessionsListEl.innerHTML = chatSessions.map(session => {
+                const isActive = session.id === activeSessionId;
+                const icon = session.type === "image" ? "🎨" : "💬";
+                const relTime = formatRelativeTime(session.updatedAt || session.createdAt);
+                const titleSafe = escapeHtml(session.title || "Untitled");
+                return `
+                    <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}" onclick="switchSession('${session.id}')">
+                        <span class="session-item-icon">${icon}</span>
+                        <div class="session-item-content">
+                            <span class="session-item-title" title="${titleSafe}">${titleSafe}</span>
+                            <span class="session-item-time">${relTime}</span>
+                        </div>
+                        <button type="button" class="session-item-delete" title="Delete Chat" onclick="deleteSession('${session.id}', event)">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        /* === Visual Message & Metrics Builders === */
+        function buildImageCardHtml(item) {
+            const promptSafe = escapeHtml(item.imagePrompt || "");
+            const revisedSafe = escapeHtml(item.revisedPrompt || "");
+            const altText = revisedSafe || promptSafe || "Generated Image";
+            const supportsEdit = item.supportsEdit !== undefined ? item.supportsEdit : true;
+
+            return `
+                <div class="image-result-card">
+                    <img src="${item.url}" class="generated-image" alt="${altText}" title="Click to view full screen" />
+                    ${revisedSafe && revisedSafe !== promptSafe ? `
+                        <div class="revised-prompt-tag">
+                            <b>🪄 Visual Prompt:</b> ${revisedSafe}
+                        </div>
+                    ` : ''}
+                    <div class="image-actions">
+                        <button type="button" class="img-action-btn" onclick="openImageLightbox('${item.url}', this.closest('.image-result-card').querySelector('.generated-image').alt)">
+                            🔍 Expand
+                        </button>
+                        <a href="${item.url}" download="generated_image.png" class="img-action-btn">
+                            ⬇️ Download PNG
+                        </a>
+                        ${supportsEdit ? `
+                            <button type="button" class="img-action-btn" onclick="attachReferenceImage('${item.url}', 'Generated Image')">
+                                ✏️ Modify Image
+                            </button>
+                        ` : `
+                            <button type="button" class="img-action-btn" style="opacity: 0.55;" title="Image-to-Image editing is supported by FLUX.2 Klein models" onclick="handleUnsupportedModify()">
+                                ✏️ Modify (FLUX only)
+                            </button>
+                        `}
+                        <button type="button" class="img-action-btn" onclick="copyImageLink(this, '${item.url}')">
+                            📋 Copy Link
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildImageMetricsHtml(metrics = {}, modelDisplayName = "") {
+            const model = modelDisplayName || (metrics.model ? metrics.model.split("/").pop() : "");
+            return `
+                ${model ? `
+                <div class="metric" data-tooltip="Model used for this generation run">
+                    <span class="metric-icon">🤖</span>
+                    <span class="metric-val" style="color: var(--primary);">${escapeHtml(model)}</span>
+                </div>` : ''}
+                ${metrics.generation_time_s !== undefined ? `
+                <div class="metric" data-tooltip="Total Image Generation Latency">
+                    <span class="metric-icon">⏱️</span>
+                    <span>Latency:</span>
+                    <span class="metric-val">${metrics.generation_time_s}s</span>
+                </div>` : ''}
+                ${metrics.steps !== undefined ? `
+                <div class="metric" data-tooltip="Denoising flow steps & step rate">
+                    <span class="metric-icon">🎨</span>
+                    <span>Steps:</span>
+                    <span class="metric-val">${metrics.steps} ${metrics.step_time_s !== undefined ? `(${metrics.step_time_s}s/step)` : ''}</span>
+                </div>` : ''}
+                ${metrics.width && metrics.height ? `
+                <div class="metric" data-tooltip="Image Canvas Resolution">
+                    <span class="metric-icon">📐</span>
+                    <span>Size:</span>
+                    <span class="metric-val">${metrics.width}x${metrics.height}</span>
+                </div>` : ''}
+                ${metrics.peak_memory_gb ? `
+                <div class="metric" data-tooltip="Peak Unified Memory during this generation run on Apple Silicon">
+                    <span class="metric-icon">💾</span>
+                    <span>Memory:</span>
+                    <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+                </div>` : ''}
+            `;
+        }
+
+        function buildChatMetricsHtml(metrics = {}, usage = {}) {
+            const promptTokens = (usage && usage.prompt_tokens) || metrics.prompt_tokens || 0;
+            const genTokens = (usage && usage.completion_tokens) || metrics.generation_tokens || 0;
+            
+            let specBadge = "";
+            if (metrics.speculation_mode && metrics.speculation_mode !== "none") {
+                const accPercent = metrics.acceptance_rate !== undefined ? (metrics.acceptance_rate * 100).toFixed(1) : null;
+                specBadge = `
+                    <div class="metric metric-accent" data-tooltip="Speculative Decoding (${metrics.speculation_mode.toUpperCase()}) Token Acceptance Rate">
+                        <span class="metric-icon">🎯</span>
+                        <span>Speculation:</span>
+                        <span class="metric-val">${metrics.speculation_mode.toUpperCase()}${accPercent ? ` (${accPercent}% acc)` : ''}</span>
+                    </div>
+                `;
+            }
+            
+            return `
+                ${metrics.tps !== undefined ? `
+                <div class="metric" data-tooltip="Generation Throughput (tokens generated per second during response)">
+                    <span class="metric-icon">⚡</span>
+                    <span>Speed:</span>
+                    <span class="metric-val">${metrics.tps} tok/s</span>
+                </div>` : ''}
+                ${metrics.ttft_ms !== undefined ? `
+                <div class="metric" data-tooltip="Time-To-First-Token: Latency from request to emitting the first token">
+                    <span class="metric-icon">⏱️</span>
+                    <span>TTFT:</span>
+                    <span class="metric-val">${metrics.ttft_ms} ms</span>
+                </div>` : ''}
+                ${metrics.prompt_tps !== undefined ? `
+                <div class="metric" data-tooltip="Prompt Ingestion Speed & Token Length">
+                    <span class="metric-icon">📥</span>
+                    <span>Prompt:</span>
+                    <span class="metric-val">${promptTokens ? promptTokens + ' tok @ ' : ''}${metrics.prompt_tps} tok/s</span>
+                </div>` : ''}
+                ${genTokens ? `
+                <div class="metric" data-tooltip="Total Output Tokens Generated">
+                    <span class="metric-icon">📝</span>
+                    <span>Output:</span>
+                    <span class="metric-val">${genTokens} tokens</span>
+                </div>` : ''}
+                ${specBadge}
+                ${metrics.peak_memory_gb ? `
+                <div class="metric" data-tooltip="Peak Unified Memory (RAM+VRAM) on Apple Silicon">
+                    <span class="metric-icon">💾</span>
+                    <span>Memory:</span>
+                    <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+                </div>` : ''}
+            `;
+        }
+
+        function renderSessionMessages(sessionId) {
+            if (!chatContainer) return;
+            chatContainer.innerHTML = "";
+
+            const session = chatSessions.find(s => s.id === sessionId);
+            if (!session || !session.messages || session.messages.length === 0) {
+                const welcomeDiv = document.createElement("div");
+                welcomeDiv.className = "message assistant";
+                if (activeModel) {
+                    const isImg = isImageModelName(activeModel);
+                    welcomeDiv.innerHTML = isImg
+                        ? `Ready to generate visuals with <strong>${escapeHtml(activeModel)}</strong>! Type a prompt or enter <code>/image &lt;prompt&gt;</code>.`
+                        : `Ready for conversation with <strong>${escapeHtml(activeModel)}</strong>. Ask anything!`;
+                } else {
+                    welcomeDiv.innerHTML = `Hello! Load a model from the sidebar to begin testing. TPM-MLX utilizes pre-allocated static KV caches, native MTP heads, and optimized zero-sync pipelines to achieve maximum tokens-per-second.`;
+                }
+                chatContainer.appendChild(welcomeDiv);
+                return;
+            }
+
+            for (const msg of session.messages) {
+                if (msg.role === "user") {
+                    const userMsgDiv = document.createElement("div");
+                    userMsgDiv.className = "message user";
+
+                    if (msg.referenceImage) {
+                        const refThumb = document.createElement("img");
+                        refThumb.src = msg.referenceImage;
+                        refThumb.style.maxWidth = "160px";
+                        refThumb.style.maxHeight = "160px";
+                        refThumb.style.borderRadius = "8px";
+                        refThumb.style.display = "block";
+                        refThumb.style.marginBottom = "8px";
+                        refThumb.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+                        userMsgDiv.appendChild(refThumb);
+                    }
+
+                    const textSpan = document.createElement("span");
+                    let userText = "";
+                    if (typeof msg.content === "string") {
+                        userText = msg.content;
+                    } else if (Array.isArray(msg.content)) {
+                        const txtObj = msg.content.find(p => p.type === "text");
+                        userText = txtObj ? txtObj.text : "";
+                    }
+                    textSpan.textContent = userText;
+                    userMsgDiv.appendChild(textSpan);
+                    chatContainer.appendChild(userMsgDiv);
+                } else if (msg.role === "assistant") {
+                    const assistantMsgDiv = document.createElement("div");
+                    assistantMsgDiv.className = "message assistant";
+
+                    const contentDiv = document.createElement("div");
+                    contentDiv.className = "message-body";
+
+                    if (msg.isImageGen && msg.imageUrl) {
+                        contentDiv.innerHTML = buildImageCardHtml({
+                            url: msg.imageUrl,
+                            imagePrompt: msg.imagePrompt || "",
+                            revisedPrompt: msg.revisedPrompt || "",
+                            supportsEdit: msg.supportsEdit !== undefined ? msg.supportsEdit : true
+                        });
+                    } else {
+                        contentDiv.innerHTML = formatMessageHtml(msg.content || "");
+                    }
+                    assistantMsgDiv.appendChild(contentDiv);
+
+                    if (msg.metrics) {
+                        const metricsDiv = document.createElement("div");
+                        metricsDiv.className = "metrics-bar";
+                        metricsDiv.innerHTML = msg.isImageGen
+                            ? buildImageMetricsHtml(msg.metrics, msg.modelDisplayName)
+                            : buildChatMetricsHtml(msg.metrics, msg.usage);
+                        assistantMsgDiv.appendChild(metricsDiv);
+                    }
+
+                    chatContainer.appendChild(assistantMsgDiv);
+                }
+            }
+
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
         // Send message function
         async function sendMessage() {
             const userText = userInput.value.trim();
             if (!userText || userInput.disabled) return;
 
+            let session = getActiveSession();
+            if (!session) {
+                session = createNewSession(false);
+            }
+
             // Add user message to UI
             const userMsgDiv = document.createElement("div");
             userMsgDiv.className = "message user";
             
-            if (attachedReferenceImageUrl) {
+            const currentRefUrl = attachedReferenceImageUrl;
+            if (currentRefUrl) {
                 const refThumb = document.createElement("img");
-                refThumb.src = attachedReferenceImageUrl;
+                refThumb.src = currentRefUrl;
                 refThumb.style.maxWidth = "160px";
                 refThumb.style.maxHeight = "160px";
                 refThumb.style.borderRadius = "8px";
@@ -2492,8 +3936,33 @@
             userInput.disabled = true;
             sendBtn.disabled = true;
 
-            // Prepare history payload
-            chatHistory.push({ role: "user", content: userText });
+            const isCurrentImageModel = isImageModelName(activeModel) || (currentModelHeader.textContent && isImageModelName(currentModelHeader.textContent));
+            const isExplicitImageCmd = userText.startsWith("/image") || userText.startsWith("/edit");
+            const routeToImageEngine = isExplicitImageCmd || isCurrentImageModel;
+
+            // Prepare user content payload (multimodal VLM if attached image on text chat)
+            let userContentPayload = userText;
+            if (!routeToImageEngine && currentRefUrl) {
+                const fullUrl = currentRefUrl.startsWith("http") || currentRefUrl.startsWith("data:")
+                    ? currentRefUrl
+                    : `${window.location.origin}${currentRefUrl}`;
+                userContentPayload = [
+                    { type: "text", text: userText },
+                    { type: "image_url", image_url: { url: fullUrl } }
+                ];
+                clearAttachedReferenceImage();
+            }
+
+            // Record user message in persistent session store
+            session.messages.push({
+                role: "user",
+                content: userContentPayload,
+                referenceImage: currentRefUrl || null,
+                timestamp: Date.now()
+            });
+            autoTitleSession(session, userText, routeToImageEngine);
+            saveSessionsState();
+            renderSessionsList();
 
             // Assistant bubble container
             const assistantMsgDiv = document.createElement("div");
@@ -2516,30 +3985,9 @@
             chatContainer.appendChild(assistantMsgDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            const isCurrentImageModel = isImageModelName(activeModel) || (currentModelHeader.textContent && isImageModelName(currentModelHeader.textContent));
-            const isExplicitImageCmd = userText.startsWith("/image") || userText.startsWith("/edit");
-            const routeToImageEngine = isExplicitImageCmd || isCurrentImageModel;
-
-            // If not an image model and not an explicit image command, attach reference image to VLM chat history
-            if (!routeToImageEngine && attachedReferenceImageUrl) {
-                chatHistory.pop(); // replace text-only history entry
-                const fullUrl = attachedReferenceImageUrl.startsWith("http") || attachedReferenceImageUrl.startsWith("data:")
-                    ? attachedReferenceImageUrl
-                    : `${window.location.origin}${attachedReferenceImageUrl}`;
-                chatHistory.push({
-                    role: "user",
-                    content: [
-                        { type: "text", text: userText },
-                        { type: "image_url", image_url: { url: fullUrl } }
-                    ]
-                });
-                clearAttachedReferenceImage();
-            }
-
             // Check for /image, /edit slash command OR image model active
             if (routeToImageEngine) {
-                const isEdit = !!attachedReferenceImageUrl || userText.startsWith("/edit");
-                const currentRefUrl = attachedReferenceImageUrl;
+                const isEdit = !!currentRefUrl || userText.startsWith("/edit");
                 clearAttachedReferenceImage();
 
                 let imagePrompt = userText.startsWith("/image") ? userText.slice(6).trim() : (userText.startsWith("/edit") ? userText.slice(5).trim() : userText.trim());
@@ -2550,8 +3998,8 @@
                     : `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">🎨 <span>Generating image with Apple Silicon MLX...</span></span>`;
 
                 try {
-                    // Extract recent conversation text as context for distillation
-                    const recentContext = chatHistory
+                    // Extract recent conversation text from session as context for distillation
+                    const recentContext = (session.messages || [])
                         .slice(-6, -1)
                         .map(m => `${m.role}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`)
                         .join("\n");
@@ -2562,6 +4010,7 @@
 
                     const endpoint = isEdit ? `${API_URL}/v1/images/edits` : `${API_URL}/v1/images/generations`;
                     const isAutoExpand = autoExpandToggle ? autoExpandToggle.checked : false;
+                    const activeImg = (isImageModelName(activeModel) ? activeModel : null) || activeImageModel;
                     const imgPayload = {
                         prompt: imagePrompt,
                         size: finalResolution,
@@ -2570,6 +4019,9 @@
                         context: isAutoExpand ? recentContext : null,
                         response_format: "url"
                     };
+                    if (activeImg) {
+                        imgPayload.model = activeImg;
+                    }
                     if (isEdit && currentRefUrl) {
                         imgPayload.image = currentRefUrl;
                         imgPayload.guidance = 2.5;
@@ -2595,66 +4047,32 @@
                         : (metrics.model ? metrics.model.toLowerCase().includes("flux") : (activeModel || "").toLowerCase().includes("flux"));
                     const modelDisplayName = (metrics.model || activeModel || "").split("/").pop();
 
-                    contentDiv.innerHTML = `
-                        <div class="image-result-card">
-                            <img src="${item.url}" class="generated-image" alt="${item.revised_prompt || imagePrompt}" />
-                            ${item.revised_prompt && item.revised_prompt !== imagePrompt ? `
-                                <div class="revised-prompt-tag">
-                                    <b>🪄 Visual Prompt:</b> ${item.revised_prompt}
-                                </div>
-                            ` : ''}
-                            <div class="image-actions">
-                                <a href="${item.url}" download="generated_image.png" class="img-action-btn">
-                                    ⬇️ Download PNG
-                                </a>
-                                ${supportsEdit ? `
-                                    <button class="img-action-btn" onclick="attachReferenceImage('${item.url}', 'Generated Image')">
-                                        ✏️ Modify Image
-                                    </button>
-                                ` : `
-                                    <button class="img-action-btn" style="opacity: 0.55;" title="Image-to-Image editing is supported by FLUX.2 Klein models" onclick="handleUnsupportedModify()">
-                                        ✏️ Modify (FLUX only)
-                                    </button>
-                                `}
-                                <button class="img-action-btn" onclick="copyImageLink(this, '${item.url}')">
-                                    📋 Copy Link
-                                </button>
-                            </div>
-                        </div>
-                    `;
+                    contentDiv.innerHTML = buildImageCardHtml({
+                        url: item.url,
+                        imagePrompt: imagePrompt,
+                        revisedPrompt: item.revised_prompt || "",
+                        supportsEdit: supportsEdit
+                    });
 
-                    metricsDiv.innerHTML = `
-                        ${modelDisplayName ? `
-                        <div class="metric" data-tooltip="Model used for this generation run">
-                            <span class="metric-icon">🤖</span>
-                            <span class="metric-val" style="color: var(--primary);">${modelDisplayName}</span>
-                        </div>` : ''}
-                        <div class="metric" data-tooltip="Total Image Generation Latency">
-                            <span class="metric-icon">⏱️</span>
-                            <span>Latency:</span>
-                            <span class="metric-val">${metrics.generation_time_s}s</span>
-                        </div>
-                        <div class="metric" data-tooltip="Denoising flow steps & step rate">
-                            <span class="metric-icon">🎨</span>
-                            <span>Steps:</span>
-                            <span class="metric-val">${metrics.steps} (${metrics.step_time_s}s/step)</span>
-                        </div>
-                        <div class="metric" data-tooltip="Image Canvas Resolution">
-                            <span class="metric-icon">📐</span>
-                            <span>Size:</span>
-                            <span class="metric-val">${metrics.width}x${metrics.height}</span>
-                        </div>
-                        ${metrics.peak_memory_gb ? `
-                        <div class="metric" data-tooltip="Peak Unified Memory during this generation run on Apple Silicon">
-                            <span class="metric-icon">💾</span>
-                            <span>Memory:</span>
-                            <span class="metric-val">${metrics.peak_memory_gb} GB</span>
-                        </div>` : ''}
-                    `;
+                    metricsDiv.innerHTML = buildImageMetricsHtml(metrics, modelDisplayName);
                     metricsDiv.style.display = "flex";
                     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-                    chatHistory.push({ role: "assistant", content: `[Generated Image: ${item.url}]` });
+                    // Append assistant image card to session store
+                    session.messages.push({
+                        role: "assistant",
+                        isImageGen: true,
+                        imageUrl: item.url,
+                        imagePrompt: imagePrompt,
+                        revisedPrompt: item.revised_prompt || "",
+                        supportsEdit: supportsEdit,
+                        modelDisplayName: modelDisplayName,
+                        metrics: metrics,
+                        timestamp: Date.now()
+                    });
+                    session.updatedAt = Date.now();
+                    saveSessionsState();
+                    renderSessionsList();
 
                 } catch (err) {
                     console.error("Image Generation Error:", err);
@@ -2671,10 +4089,17 @@
                 return;
             }
 
+            // Rolling Context: extract the last 10 non-image messages to safeguard static KV cache
+            const rollingMessages = (session.messages || [])
+                .filter(m => !m.isImageGen)
+                .slice(-10)
+                .map(m => ({ role: m.role, content: m.content }));
+            chatHistory = rollingMessages;
+
             // Build request params
             const payload = {
                 model: activeModel,
-                messages: chatHistory,
+                messages: rollingMessages,
                 max_tokens: parseInt(tokensInput.value) || 4096,
                 temperature: parseFloat(tempSlider.value),
                 stream: true,
@@ -2683,6 +4108,8 @@
 
             let assistantText = "";
             let metricsRendered = false;
+            let lastMetrics = null;
+            let lastUsage = null;
             
             try {
                 const response = await fetch(`${API_URL}/v1/chat/completions`, {
@@ -2726,56 +4153,17 @@
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                             
+                            if (chunk.tpm_metrics) {
+                                lastMetrics = chunk.tpm_metrics;
+                            }
+                            if (chunk.usage) {
+                                lastUsage = chunk.usage;
+                            }
+
                             // Render final stats when available
                             if (chunk.tpm_metrics && !metricsRendered) {
                                 metricsRendered = true;
-                                const metrics = chunk.tpm_metrics;
-                                const usage = chunk.usage || {};
-                                const promptTokens = usage.prompt_tokens || metrics.prompt_tokens || 0;
-                                const genTokens = usage.completion_tokens || metrics.generation_tokens || 0;
-                                
-                                let specBadge = "";
-                                if (metrics.speculation_mode && metrics.speculation_mode !== "none") {
-                                    const accPercent = (metrics.acceptance_rate * 100).toFixed(1);
-                                    specBadge = `
-                                        <div class="metric metric-accent" data-tooltip="Speculative Decoding (${metrics.speculation_mode.toUpperCase()}) Token Acceptance Rate">
-                                            <span class="metric-icon">🎯</span>
-                                            <span>Speculation:</span>
-                                            <span class="metric-val">${metrics.speculation_mode.toUpperCase()} (${accPercent}% acc)</span>
-                                        </div>
-                                    `;
-                                }
-                                
-                                metricsDiv.innerHTML = `
-                                    <div class="metric" data-tooltip="Generation Throughput (tokens generated per second during response)">
-                                        <span class="metric-icon">⚡</span>
-                                        <span>Speed:</span>
-                                        <span class="metric-val">${metrics.tps} tok/s</span>
-                                    </div>
-                                    <div class="metric" data-tooltip="Time-To-First-Token: Latency from request to emitting the first token">
-                                        <span class="metric-icon">⏱️</span>
-                                        <span>TTFT:</span>
-                                        <span class="metric-val">${metrics.ttft_ms} ms</span>
-                                    </div>
-                                    <div class="metric" data-tooltip="Prompt Ingestion Speed & Token Length">
-                                        <span class="metric-icon">📥</span>
-                                        <span>Prompt:</span>
-                                        <span class="metric-val">${promptTokens ? promptTokens + ' tok @ ' : ''}${metrics.prompt_tps} tok/s</span>
-                                    </div>
-                                    ${genTokens ? `
-                                    <div class="metric" data-tooltip="Total Output Tokens Generated">
-                                        <span class="metric-icon">📝</span>
-                                        <span>Output:</span>
-                                        <span class="metric-val">${genTokens} tokens</span>
-                                    </div>` : ''}
-                                    ${specBadge}
-                                    ${metrics.peak_memory_gb ? `
-                                    <div class="metric" data-tooltip="Peak Unified Memory (RAM+VRAM) on Apple Silicon">
-                                        <span class="metric-icon">💾</span>
-                                        <span>Memory:</span>
-                                        <span class="metric-val">${metrics.peak_memory_gb} GB</span>
-                                    </div>` : ''}
-                                `;
+                                metricsDiv.innerHTML = buildChatMetricsHtml(chunk.tpm_metrics, chunk.usage);
                                 metricsDiv.style.display = "flex";
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
@@ -2785,8 +4173,17 @@
                     }
                 }
                 
-                // Add Assistant content to history
-                chatHistory.push({ role: "assistant", content: assistantText });
+                // Add Assistant content to persistent session history
+                session.messages.push({
+                    role: "assistant",
+                    content: assistantText,
+                    metrics: lastMetrics,
+                    usage: lastUsage,
+                    timestamp: Date.now()
+                });
+                session.updatedAt = Date.now();
+                saveSessionsState();
+                renderSessionsList();
 
             } catch (err) {
                 console.error("Inference Error:", err);
@@ -2817,7 +4214,22 @@
         });
         sendBtn.addEventListener("click", sendMessage);
 
-        // Fetch models on load
+        // Session Actions Event Listeners
+        if (newChatBtn) newChatBtn.addEventListener("click", () => createNewSession(true));
+        if (headerNewChatBtn) headerNewChatBtn.addEventListener("click", () => createNewSession(true));
+        if (exportChatBtn) exportChatBtn.addEventListener("click", exportCurrentChat);
+        if (clearSessionsBtn) clearSessionsBtn.addEventListener("click", clearAllSessions);
+
+        // Global Cmd+K / Ctrl+K shortcut for New Chat
+        window.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault();
+                createNewSession(true);
+            }
+        });
+
+        // Initialize persistent sessions and fetch models on load
+        loadSessionsState();
         fetchModels();
     </script>
 </body>
