@@ -38,8 +38,9 @@ image_engine: Optional[Any] = None
 loaded_image_model_id: Optional[str] = None
 image_loading_lock = asyncio.Lock()
 
-# Directory for persisted generated images
-images_dir = Path(__file__).parent / "static" / "images"
+# Directory for persisted generated images and static assets
+static_dir = Path(__file__).parent / "static"
+images_dir = static_dir / "images"
 images_dir.mkdir(parents=True, exist_ok=True)
 
 # Global default max KV size
@@ -51,6 +52,8 @@ app = FastAPI(
     version="0.2.0"
 )
 
+# Mount static directory for CSS, JS, and playground assets
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 # Mount static images directory for generated assets
 app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 

@@ -1,0 +1,202 @@
+:root {
+    /* Linear Dark Theme (Obsidian Frosted Glass) */
+    --bg-base: #07080b;
+    --sidebar-bg: rgba(12, 14, 20, 0.58);
+    --header-bg: rgba(9, 11, 17, 0.55);
+    --card-bg: rgba(18, 22, 32, 0.55);
+    --card-bg-subtle: rgba(255, 255, 255, 0.04);
+    --card-bg-user: rgba(255, 255, 255, 0.07);
+    --glass-control-bg: rgba(255, 255, 255, 0.04);
+    --glass-input-bg: rgba(14, 17, 26, 0.65);
+    
+    --border-color: rgba(255, 255, 255, 0.09);
+    --border-hover: rgba(255, 255, 255, 0.2);
+    --border-active: rgba(255, 255, 255, 0.35);
+    
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-prominent: rgba(255, 255, 255, 0.18);
+    --glass-bevel: inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+    --glass-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.3);
+    
+    --ambient-orb-1: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, rgba(14, 165, 233, 0.06) 50%, transparent 70%);
+    --ambient-orb-2: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(79, 70, 229, 0.05) 50%, transparent 70%);
+    --ambient-orb-3: radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, rgba(236, 72, 153, 0.03) 50%, transparent 70%);
+    
+    --text-primary: #f3f4f6;
+    --text-secondary: #9499a6;
+    --text-tertiary: #606572;
+    
+    /* High-contrast solid primary action */
+    --btn-primary-bg: #eceef2;
+    --btn-primary-text: #08090b;
+    --btn-primary-hover: #ffffff;
+    --btn-primary-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    
+    --input-bg: rgba(255, 255, 255, 0.04);
+    --input-bg-focus: rgba(255, 255, 255, 0.08);
+
+    /* Semantic functional statuses */
+    --status-connected: #10b981;
+    --status-connected-bg: rgba(16, 185, 129, 0.14);
+    --status-connected-border: rgba(16, 185, 129, 0.35);
+    --status-loading: #f59e0b;
+    --status-loading-bg: rgba(245, 158, 11, 0.14);
+    --status-error: #ef4444;
+    --status-error-bg: rgba(239, 68, 68, 0.14);
+
+    /* Badges & tags */
+    --spec-badge-bg: rgba(255, 255, 255, 0.06);
+    --spec-badge-text: #e2e4e9;
+    --spec-badge-border: rgba(255, 255, 255, 0.14);
+
+    /* Thinking block */
+    --thought-bg: rgba(255, 255, 255, 0.03);
+    --thought-border: rgba(255, 255, 255, 0.1);
+    --thought-text: #9ba0ad;
+    --thought-accent: #d1d5db;
+
+    /* Code block */
+    --code-bg: rgba(0, 0, 0, 0.5);
+    --code-border: rgba(255, 255, 255, 0.08);
+    --code-inline-bg: rgba(255, 255, 255, 0.08);
+    --code-inline-text: #e2e8f0;
+
+    /* Scrollbar */
+    --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+
+    --surface-hover: rgba(255, 255, 255, 0.07);
+    --surface-active: rgba(255, 255, 255, 0.12);
+    --sidebar-width: 320px;
+}
+
+:root[data-theme="light"] {
+    /* Linear Light Theme (Porcelain Frosted Glass) */
+    --bg-base: #f0f2f5;
+    --sidebar-bg: rgba(255, 255, 255, 0.65);
+    --header-bg: rgba(255, 255, 255, 0.65);
+    --card-bg: rgba(255, 255, 255, 0.72);
+    --card-bg-subtle: rgba(255, 255, 255, 0.55);
+    --card-bg-user: rgba(0, 0, 0, 0.05);
+    --glass-control-bg: rgba(255, 255, 255, 0.6);
+    --glass-input-bg: rgba(255, 255, 255, 0.78);
+    
+    --border-color: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.18);
+    --border-active: rgba(0, 0, 0, 0.32);
+    
+    --glass-border: rgba(255, 255, 255, 0.85);
+    --glass-border-prominent: rgba(255, 255, 255, 0.95);
+    --glass-bevel: inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+    --glass-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.07);
+    
+    --ambient-orb-1: radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(14, 165, 233, 0.08) 50%, transparent 70%);
+    --ambient-orb-2: radial-gradient(circle, rgba(244, 63, 94, 0.18) 0%, rgba(236, 72, 153, 0.06) 50%, transparent 70%);
+    --ambient-orb-3: radial-gradient(circle, rgba(168, 85, 247, 0.16) 0%, rgba(129, 140, 248, 0.05) 50%, transparent 70%);
+    
+    --text-primary: #0f1217;
+    --text-secondary: #4b5260;
+    --text-tertiary: #7e8492;
+    
+    --btn-primary-bg: #090a0f;
+    --btn-primary-text: #ffffff;
+    --btn-primary-hover: #1b1e26;
+    --btn-primary-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    
+    --input-bg: rgba(255, 255, 255, 0.6);
+    --input-bg-focus: #ffffff;
+
+    /* Semantic functional statuses */
+    --status-connected: #059669;
+    --status-connected-bg: rgba(16, 185, 129, 0.16);
+    --status-connected-border: rgba(16, 185, 129, 0.35);
+    --status-loading: #d97706;
+    --status-loading-bg: rgba(245, 158, 11, 0.16);
+    --status-error: #dc2626;
+    --status-error-bg: rgba(239, 68, 68, 0.16);
+
+    /* Badges & tags */
+    --spec-badge-bg: rgba(0, 0, 0, 0.05);
+    --spec-badge-text: #1f2328;
+    --spec-badge-border: rgba(0, 0, 0, 0.1);
+
+    /* Thinking block */
+    --thought-bg: rgba(255, 255, 255, 0.5);
+    --thought-border: rgba(0, 0, 0, 0.08);
+    --thought-text: #4b5260;
+    --thought-accent: #1f2328;
+
+    /* Code block */
+    --code-bg: rgba(241, 243, 245, 0.85);
+    --code-border: rgba(0, 0, 0, 0.08);
+    --code-inline-bg: rgba(0, 0, 0, 0.06);
+    --code-inline-text: #0f172a;
+
+    /* Scrollbar */
+    --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+
+    --surface-hover: rgba(0, 0, 0, 0.04);
+    --surface-active: rgba(0, 0, 0, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow: hidden;
+    overscroll-behavior: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    display: flex;
+    width: 100vw;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Ambient Background Light Mesh for High-Fidelity Frosted Glass Refraction */
+.glass-ambient-sphere {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    filter: blur(100px);
+    opacity: 0.85;
+    transition: opacity 0.5s ease, background 0.5s ease;
+}
+
+.glass-sphere-1 {
+    width: 550px;
+    height: 550px;
+    top: -140px;
+    left: 2%;
+    background: var(--ambient-orb-1);
+}
+
+.glass-sphere-2 {
+    width: 620px;
+    height: 620px;
+    bottom: -120px;
+    right: -2%;
+    background: var(--ambient-orb-2);
+}
+
+.glass-sphere-3 {
+    width: 440px;
+    height: 440px;
+    top: 35%;
+    left: 48%;
+    background: var(--ambient-orb-3);
+}
+
