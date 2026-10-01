@@ -52,6 +52,8 @@ def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_s
             os.environ["TPM_DEFAULT_DRAFT_MODEL"] = draft_model
         elif "gemma-4-e2b" in model.lower():
             os.environ["TPM_DEFAULT_DRAFT_MODEL"] = "mlx-community/gemma-4-E2B-it-assistant-bf16"
+        elif "qwen3.6-35b-a3b" in model.lower():
+            os.environ["TPM_DEFAULT_DRAFT_MODEL"] = "mlx-community/Qwen3.6-35B-A3B-MTP-4bit"
         else:
             os.environ.pop("TPM_DEFAULT_DRAFT_MODEL", None)
 

@@ -239,27 +239,46 @@ export function autoSelectMatchingDraft(baseModelId) {
         return;
     }
     const lower = baseModelId.toLowerCase();
+    const cleanBase = lower.replace(/^.*?\//, "").replace(/-4bit|-8bit|-bf16|-fp16|-it|-instruct/g, "");
     
-    if (draftSelect.value === "__AUTO__") {
-        return; // Server handles auto-pairing
-    }
-    
+    // Find matching companion assistant option in draftSelect dynamically
+    let matchIdx = -1;
+    // Pass 1: exact match with preference for official bf16 assistant on Gemma
     for (let i = 0; i < draftSelect.options.length; i++) {
         const optVal = draftSelect.options[i].value;
         const optLower = optVal.toLowerCase();
-        if (lower.includes("qwen3.8-27b") && optLower.includes("qwen3.8-27b-mtp")) {
-            draftSelect.selectedIndex = i;
-            return;
-        } else if (lower.includes("gemma-4-e4b") && optLower.includes("e4b-it-assistant")) {
-            draftSelect.selectedIndex = i;
-            return;
-        } else if (lower.includes("gemma-4-e2b") && optLower.includes("e2b-it-assistant")) {
-            draftSelect.selectedIndex = i;
-            return;
-        } else if (lower.includes("gemma-4-26b") && optLower.includes("26b-a4b-it-assistant")) {
-            draftSelect.selectedIndex = i;
-            return;
+        if (optVal === "__AUTO__" || optVal === "__NONE__" || optVal === "__CUSTOM__") continue;
+
+        const cleanDraft = optLower.replace(/^.*?\//, "").replace(/-4bit|-8bit|-bf16|-fp16|-it|-instruct/g, "");
+        const draftWithoutTag = cleanDraft.replace(/-mtp|-assistant|_mtp|_assistant/g, "");
+
+        if (draftWithoutTag === cleanBase || cleanDraft.includes(cleanBase)) {
+            if (lower.includes("gemma") && optLower.includes("bf16")) {
+                matchIdx = i;
+                break;
+            }
+            if (matchIdx === -1) matchIdx = i;
         }
+
+        // Tokenized match: all base tokens present in draft name with mtp/assistant tag
+        const baseTokens = cleanBase.split(/[-_]/).filter(t => t.length > 0);
+        const draftTokens = optLower.split(/[-_/]/).filter(t => t.length > 0);
+        const allBaseTokens = baseTokens.every(tok => draftTokens.includes(tok));
+        const hasSpecTag = draftTokens.some(t => t.includes("mtp") || t.includes("assistant"));
+        if (allBaseTokens && hasSpecTag) {
+            if (lower.includes("gemma") && optLower.includes("bf16")) {
+                matchIdx = i;
+                break;
+            }
+            if (matchIdx === -1) matchIdx = i;
+        }
+    }
+
+    if (matchIdx !== -1) {
+        draftSelect.selectedIndex = matchIdx;
+    } else {
+        // Reset to None (Single-Token Baseline) when model has no companion assistant
+        draftSelect.value = "__NONE__";
     }
 }
 
@@ -699,7 +718,7 @@ export async function fetchModels() {
                 const opt = document.createElement("option");
                 opt.value = m.id;
                 opt.title = m.id;
-                const isDraftActive = activeDraftModel === m.id || (m.active && m.active_type === "draft");
+                const isDraftActive = !isImageModelName(activeModel) && (activeDraftModel === m.id || (m.active && m.active_type === "draft"));
                 opt.textContent = formatModelDisplayLabel(m.id, isDraftActive);
                 if (isDraftActive) opt.selected = true;
                 draftOptGroup.appendChild(opt);
@@ -707,7 +726,7 @@ export async function fetchModels() {
                 const opt = document.createElement("option");
                 opt.value = m.id;
                 opt.title = m.id;
-                const isImgActive = activeImageModel === m.id || (m.active && m.active_type === "image") || activeModel === m.id;
+                const isImgActive = (activeModel === m.id);
                 opt.textContent = formatModelDisplayLabel(m.id, isImgActive);
                 if (activeModel === m.id) {
                     opt.selected = true;
@@ -718,7 +737,7 @@ export async function fetchModels() {
                 const opt = document.createElement("option");
                 opt.value = m.id;
                 opt.title = m.id;
-                const isTxtActive = activeModel === m.id || (m.active && m.active_type === "llm");
+                const isTxtActive = (activeModel === m.id);
                 opt.textContent = formatModelDisplayLabel(m.id, isTxtActive);
                 if (activeModel === m.id) {
                     opt.selected = true;
@@ -742,9 +761,30 @@ export async function fetchModels() {
         draftOptGroup.appendChild(customDraftOpt);
         draftSelect.appendChild(draftOptGroup);
 
+        // Explicitly set modelSelect.value and draftSelect.value after DOM elements are appended
+        if (activeModel) {
+            modelSelect.value = activeModel;
+        }
+        if (isImageModelName(activeModel)) {
+            draftSelect.value = "__NONE__";
+        } else if (activeDraftModel) {
+            draftSelect.value = activeDraftModel;
+        } else {
+            draftSelect.value = "__AUTO__";
+        }
+
         handleModelSelectionChange();
 
-        if (activeFound || activeModel) {
+        if (data.is_loading) {
+            const elapsedStr = data.loading_elapsed_s ? ` (${data.loading_elapsed_s}s)` : "";
+            updateServerStatus("loading", "#fbbf24", `Loading Model${elapsedStr}...`);
+            loadModelBtn.disabled = true;
+            loadModelBtn.textContent = "Loading Model...";
+            currentModelHeader.textContent = `Loading ${data.loading_model || "Model"}...`;
+            setTimeout(fetchModels, 2000);
+        } else if (activeFound || activeModel) {
+            loadModelBtn.disabled = false;
+            loadModelBtn.textContent = "Load Model";
             updateHeaderBadge(activeModel, activeDraftModel, data.speculation_mode, data.has_mtp, data.num_draft_tokens, data.backend);
             userInput.disabled = false;
             sendBtn.disabled = false;
@@ -752,6 +792,8 @@ export async function fetchModels() {
             userInput.placeholder = isImg ? "Type an image prompt to generate..." : (isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)");
             updateServerStatus("connected", "#10b981", "Server Connected");
         } else {
+            loadModelBtn.disabled = false;
+            loadModelBtn.textContent = "Load Model";
             currentModelHeader.textContent = "Select and Load a Model";
             updateServerStatus("connected", "#10b981", "Server Connected");
         }
@@ -785,15 +827,40 @@ async function handleLoadModel() {
             selectedDraft = null;
         } else if (selectedDraft === "__AUTO__") {
             const lower = selectedModel.toLowerCase();
-            if (lower.includes("qwen3.8-27b") && !lower.includes("-mtp")) {
-                selectedDraft = "mlx-community/Qwen3.8-27B-MTP-4bit";
-            } else if (lower.includes("gemma-4-e4b") && !lower.includes("assistant")) {
-                selectedDraft = "mlx-community/gemma-4-E4B-it-assistant-bf16";
-            } else if (lower.includes("gemma-4-e2b") && !lower.includes("assistant")) {
-                selectedDraft = "mlx-community/gemma-4-E2B-it-assistant-bf16";
-            } else if (lower.includes("gemma-4-26b") && !lower.includes("assistant")) {
-                selectedDraft = "mlx-community/gemma-4-26B-A4B-it-assistant-bf16";
-            } else {
+            const cleanBase = lower.replace(/^.*?\//, "").replace(/-4bit|-8bit|-bf16|-fp16|-it|-instruct/g, "");
+            let autoFound = null;
+            for (let i = 0; i < draftSelect.options.length; i++) {
+                const optVal = draftSelect.options[i].value;
+                const optLower = optVal.toLowerCase();
+                if (optVal === "__AUTO__" || optVal === "__NONE__" || optVal === "__CUSTOM__") continue;
+                const cleanDraft = optLower.replace(/^.*?\//, "").replace(/-4bit|-8bit|-bf16|-fp16|-it|-instruct/g, "");
+                const draftWithoutTag = cleanDraft.replace(/-mtp|-assistant|_mtp|_assistant/g, "");
+                if (draftWithoutTag === cleanBase || cleanDraft.includes(cleanBase)) {
+                    autoFound = optVal;
+                    break;
+                }
+                const baseTokens = cleanBase.split(/[-_]/).filter(t => t.length > 0);
+                const draftTokens = optLower.split(/[-_/]/).filter(t => t.length > 0);
+                if (baseTokens.every(tok => draftTokens.includes(tok)) && draftTokens.some(t => t.includes("mtp") || t.includes("assistant"))) {
+                    autoFound = optVal;
+                    break;
+                }
+            }
+            selectedDraft = autoFound;
+        }
+
+        // Cross-family mismatch guard to prevent invalid drafter pairing crashes
+        if (selectedDraft && selectedDraft !== "__NONE__" && selectedDraft !== "__AUTO__") {
+            const baseLower = selectedModel.toLowerCase();
+            const draftLower = selectedDraft.toLowerCase();
+            if (baseLower.includes("qwen") && !draftLower.includes("qwen")) {
+                console.warn("Mismatched draft assistant detected for Qwen base, resetting draft to null");
+                selectedDraft = null;
+            } else if (baseLower.includes("gemma") && !draftLower.includes("gemma")) {
+                console.warn("Mismatched draft assistant detected for Gemma base, resetting draft to null");
+                selectedDraft = null;
+            } else if (baseLower.includes("bonsai") && (draftLower.includes("gemma") || draftLower.includes("qwen"))) {
+                console.warn("Mismatched draft assistant detected for Bonsai base, resetting draft to null");
                 selectedDraft = null;
             }
         }

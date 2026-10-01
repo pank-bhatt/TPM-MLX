@@ -10,6 +10,7 @@ class LoadModelRequest(BaseModel):
     max_kv_size: Optional[int] = None
     enable_mtp: Optional[bool] = True
     num_draft_tokens: Optional[int] = None
+    async_load: Optional[bool] = False
 
 
 class LoadImageModelRequest(BaseModel):
@@ -38,3 +39,6 @@ class ModelListResponse(BaseModel):
     has_mtp: bool = False
     num_draft_tokens: Optional[int] = None
     backend: str = "llm"
+    is_loading: bool = False
+    loading_model: Optional[str] = None
+    status: str = "idle"

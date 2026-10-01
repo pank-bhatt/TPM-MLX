@@ -11,6 +11,7 @@ import json
 import time
 import uuid
 import asyncio
+import threading
 import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -32,11 +33,28 @@ async def chat_completions(req: ChatCompletionRequest):
     current_engine = state.engine
     current_model_id = state.loaded_model_id
 
+    # If model is currently loading, await completion for up to 20s before returning 503
     if current_engine is None:
-        raise HTTPException(
-            status_code=400,
-            detail="No model is loaded. Please load a model using /v1/load_model first.",
-        )
+        if state.is_loading and state.loading_task and not state.loading_task.done():
+            logger.info(f"Chat request arrived while model '{state.loading_model_id}' is loading. Waiting for load task...")
+            try:
+                await asyncio.wait_for(asyncio.shield(state.loading_task), timeout=20.0)
+                current_engine = state.engine
+                current_model_id = state.loaded_model_id
+            except (asyncio.TimeoutError, Exception) as wait_err:
+                logger.warning(f"Wait for in-flight model loading concluded with: {wait_err}")
+
+        if current_engine is None:
+            if state.is_loading:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Model '{state.loading_model_id}' is currently loading. Please retry in a few moments.",
+                    headers={"Retry-After": "5"}
+                )
+            raise HTTPException(
+                status_code=400,
+                detail="No model is loaded. Please load a model using /v1/load_model first.",
+            )
 
     # Resolve reasoning flag
     if req.reasoning is not None:
@@ -52,10 +70,15 @@ async def chat_completions(req: ChatCompletionRequest):
             from mlx_vlm.prompt_utils import apply_chat_template
             prompt = apply_chat_template(current_engine.processor, current_engine.model.config, formatted_messages)
         else:
+            kwargs = {
+                "tokenize": False,
+                "add_generation_prompt": True,
+            }
+            if req.tools:
+                kwargs["tools"] = req.tools
             prompt = current_engine.tokenizer.apply_chat_template(
                 formatted_messages,
-                tokenize=False,
-                add_generation_prompt=True,
+                **kwargs
             )
     except Exception as e:
         prompt = apply_chat_template_fallback(formatted_messages, current_engine.tokenizer)
@@ -68,7 +91,8 @@ async def chat_completions(req: ChatCompletionRequest):
 
     if req.stream:
         async def event_generator():
-            queue = asyncio.Queue(maxsize=16)
+            queue = asyncio.Queue()
+            cancel_event = threading.Event()
 
             def producer():
                 try:
@@ -79,11 +103,15 @@ async def chat_completions(req: ChatCompletionRequest):
                         show_reasoning=show_reasoning,
                         images=images if images else None,
                     ):
-                        asyncio.run_coroutine_threadsafe(queue.put(response), loop).result()
-                    asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
+                        if cancel_event.is_set():
+                            logger.info("Stream generation aborted: client disconnected.")
+                            break
+                        loop.call_soon_threadsafe(queue.put_nowait, response)
+                    if not cancel_event.is_set():
+                        loop.call_soon_threadsafe(queue.put_nowait, None)
                 except Exception as ex:
                     logger.error(f"Error in stream producer thread: {ex}")
-                    asyncio.run_coroutine_threadsafe(queue.put(ex), loop).result()
+                    loop.call_soon_threadsafe(queue.put_nowait, ex)
 
             # Start generator in executor thread
             loop.run_in_executor(state.mlx_executor, producer)
@@ -97,94 +125,97 @@ async def chat_completions(req: ChatCompletionRequest):
             start_time = time.perf_counter()
             metrics_sent = False
 
-            while True:
-                item = await queue.get()
-                if item is None:
-                    # Finalize stream and emit metrics chunk if not already sent
-                    if not metrics_sent and completion_tokens_count > 0:
-                        final_chunk = {
-                            "id": chat_id,
-                            "object": "chat.completion.chunk",
-                            "created": created_time,
-                            "model": current_model_id,
-                            "choices": [
-                                {
-                                    "index": 0,
-                                    "delta": {},
-                                    "finish_reason": "stop"
+            try:
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        # Finalize stream and emit metrics chunk if not already sent
+                        if not metrics_sent and completion_tokens_count > 0:
+                            final_chunk = {
+                                "id": chat_id,
+                                "object": "chat.completion.chunk",
+                                "created": created_time,
+                                "model": current_model_id,
+                                "choices": [
+                                    {
+                                        "index": 0,
+                                        "delta": {},
+                                        "finish_reason": "stop"
+                                    }
+                                ],
+                                "usage": {
+                                    "prompt_tokens": prompt_tokens_count,
+                                    "completion_tokens": completion_tokens_count,
+                                    "total_tokens": prompt_tokens_count + completion_tokens_count
+                                },
+                                "tpm_metrics": {
+                                    "tps": round(generation_tps, 2),
+                                    "ttft_ms": round(ttft, 2),
+                                    "prompt_tps": round(prompt_tps, 2),
+                                    "peak_memory_gb": round(peak_mem, 2),
+                                    "prompt_tokens": prompt_tokens_count,
+                                    "generation_tokens": completion_tokens_count,
+                                    "speculation_mode": current_engine.speculation_mode if current_engine else "none",
+                                    "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
+                                    "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
+                                    "accepted_tokens_total": current_engine.speculation_stats.accepted_tokens_total if current_engine else 0,
                                 }
-                            ],
-                            "usage": {
-                                "prompt_tokens": prompt_tokens_count,
-                                "completion_tokens": completion_tokens_count,
-                                "total_tokens": prompt_tokens_count + completion_tokens_count
-                            },
-                            "tpm_metrics": {
-                                "tps": round(generation_tps, 2),
-                                "ttft_ms": round(ttft, 2),
-                                "prompt_tps": round(prompt_tps, 2),
-                                "peak_memory_gb": round(peak_mem, 2),
-                                "prompt_tokens": prompt_tokens_count,
-                                "generation_tokens": completion_tokens_count,
-                                "speculation_mode": current_engine.speculation_mode if current_engine else "none",
-                                "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
-                                "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
-                                "accepted_tokens_total": current_engine.speculation_stats.accepted_tokens_total if current_engine else 0,
                             }
-                        }
-                        yield f"data: {json.dumps(final_chunk)}\n\n"
-                    break
+                            yield f"data: {json.dumps(final_chunk)}\n\n"
+                        break
 
-                if isinstance(item, Exception):
-                    yield f"data: {{\"error\": \"{str(item)}\"}}\n\n"
-                    break
+                    if isinstance(item, Exception):
+                        yield f"data: {{\"error\": \"{str(item)}\"}}\n\n"
+                        break
 
-                completion_tokens_count = item.generation_tokens
-                prompt_tokens_count = item.prompt_tokens
-                generation_tps = item.generation_tps
-                prompt_tps = item.prompt_tps
-                peak_mem = item.peak_memory
+                    completion_tokens_count = item.generation_tokens
+                    prompt_tokens_count = item.prompt_tokens
+                    generation_tps = item.generation_tps
+                    prompt_tps = item.prompt_tps
+                    peak_mem = item.peak_memory
 
-                if ttft == 0.0 and (completion_tokens_count > 0 or bool(item.text)):
-                    ttft = max((time.perf_counter() - start_time) * 1000.0, 1.0)
+                    if ttft == 0.0 and (completion_tokens_count > 0 or bool(item.text)):
+                        ttft = max((time.perf_counter() - start_time) * 1000.0, 1.0)
 
-                chunk = {
-                    "id": chat_id,
-                    "object": "chat.completion.chunk",
-                    "created": created_time,
-                    "model": current_model_id,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"content": item.text},
-                            "finish_reason": item.finish_reason
-                        }
-                    ]
-                }
-
-                if item.finish_reason is not None:
-                    metrics_sent = True
-                    chunk["usage"] = {
-                        "prompt_tokens": prompt_tokens_count,
-                        "completion_tokens": completion_tokens_count,
-                        "total_tokens": prompt_tokens_count + completion_tokens_count
-                    }
-                    chunk["tpm_metrics"] = {
-                        "tps": round(generation_tps, 2),
-                        "ttft_ms": round(ttft, 2),
-                        "prompt_tps": round(prompt_tps, 2),
-                        "peak_memory_gb": round(peak_mem, 2),
-                        "prompt_tokens": prompt_tokens_count,
-                        "generation_tokens": completion_tokens_count,
-                        "speculation_mode": current_engine.speculation_mode if current_engine else "none",
-                        "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
-                        "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
-                        "accepted_tokens_total": current_engine.speculation_stats.accepted_tokens_total if current_engine else 0,
+                    chunk = {
+                        "id": chat_id,
+                        "object": "chat.completion.chunk",
+                        "created": created_time,
+                        "model": current_model_id,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": item.text},
+                                "finish_reason": item.finish_reason
+                            }
+                        ]
                     }
 
-                yield f"data: {json.dumps(chunk)}\n\n"
+                    if item.finish_reason is not None:
+                        metrics_sent = True
+                        chunk["usage"] = {
+                            "prompt_tokens": prompt_tokens_count,
+                            "completion_tokens": completion_tokens_count,
+                            "total_tokens": prompt_tokens_count + completion_tokens_count
+                        }
+                        chunk["tpm_metrics"] = {
+                            "tps": round(generation_tps, 2),
+                            "ttft_ms": round(ttft, 2),
+                            "prompt_tps": round(prompt_tps, 2),
+                            "peak_memory_gb": round(peak_mem, 2),
+                            "prompt_tokens": prompt_tokens_count,
+                            "generation_tokens": completion_tokens_count,
+                            "speculation_mode": current_engine.speculation_mode if current_engine else "none",
+                            "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4) if current_engine else 0.0,
+                            "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total if current_engine else 0,
+                            "accepted_tokens_total": current_engine.speculation_stats.accepted_tokens_total if current_engine else 0,
+                        }
 
-            yield "data: [DONE]\n\n"
+                    yield f"data: {json.dumps(chunk)}\n\n"
+
+                yield "data: [DONE]\n\n"
+            finally:
+                cancel_event.set()
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 

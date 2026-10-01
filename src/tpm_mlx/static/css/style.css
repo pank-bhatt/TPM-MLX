@@ -1,4 +1,4 @@
 /* TPM-MLX Modern Master Stylesheet */
-@import "./theme.css";
-@import "./layout.css";
-@import "./components.css";
+@import "./theme.css?v=0.2.1";
+@import "./layout.css?v=0.2.1";
+@import "./components.css?v=0.2.1";

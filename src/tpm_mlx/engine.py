@@ -19,6 +19,76 @@ from mlx_lm.generate import stream_generate, GenerationResponse
 from tpm_mlx.cache import PreAllocatedKVCache
 
 
+def _patch_gemma4_assistant_quantized_embeddings():
+    """
+    Patches upstream mlx_vlm Gemma 4 Assistant draft model to support
+    QuantizedEmbedding (e.g. QAT 4-bit assistants like gemma-4-E4B-it-qat-assistant-4bit).
+    In upstream mlx_vlm, embed_tokens.weight is passed directly into MaskedEmbedder,
+    which fails when embed_tokens is a QuantizedEmbedding because .weight is packed
+    uint32 with shape (vocab_size, hidden_size // 8).
+    """
+    try:
+        from mlx_vlm.speculative.drafters.gemma4_assistant import masked_embedder, gemma4_assistant
+        import mlx.core as mx
+
+        if getattr(gemma4_assistant, "_tpm_quant_patched", False):
+            return
+
+        orig_selected_logits = masked_embedder.MaskedEmbedder._selected_logits
+
+        def patched_selected_logits(self, hidden_states, lm_head_weight):
+            if callable(lm_head_weight):
+                B, L = hidden_states.shape[:2]
+                centroid_logits = self.centroids(hidden_states)
+                topk_idx = mx.argpartition(centroid_logits, kth=-self.top_k, axis=-1)[..., -self.top_k:]
+                ordering = self.token_ordering.reshape(self.num_centroids, self.vocab_size_per_centroid)
+                selected_canonical = ordering[topk_idx]
+                flat_idx = selected_canonical.reshape(-1)
+                selected_emb = lm_head_weight(flat_idx).reshape(
+                    B, L, self.top_k * self.vocab_size_per_centroid, self.hidden_size
+                )
+                selected_logits = mx.matmul(
+                    hidden_states[..., None, :],
+                    selected_emb.swapaxes(-1, -2),
+                ).squeeze(-2)
+                return selected_canonical, selected_logits
+            return orig_selected_logits(self, hidden_states, lm_head_weight)
+
+        masked_embedder.MaskedEmbedder._selected_logits = patched_selected_logits
+
+        orig_bind = gemma4_assistant.Gemma4AssistantDraftModel.bind
+        def patched_bind(self, target_model):
+            res = orig_bind(self, target_model)
+            if self.masked_embedding is not None and hasattr(self, "model") and hasattr(self.model, "embed_tokens"):
+                masked = self.masked_embedding
+                embed_fn = self.model.embed_tokens
+                self._lm_head_fn = lambda h: masked(h, embed_fn)
+            return res
+        gemma4_assistant.Gemma4AssistantDraftModel.bind = patched_bind
+
+        orig_draft_block = gemma4_assistant.Gemma4AssistantDraftModel.draft_block
+        def patched_draft_block(self, *args, **kwargs):
+            if self.masked_embedding is not None and hasattr(self, "model") and hasattr(self.model, "embed_tokens"):
+                orig_argmax = self.masked_embedding.argmax
+                def wrapped_argmax(h, w):
+                    selected_canonical, selected_logits = self.masked_embedding._selected_logits(h, self.model.embed_tokens)
+                    best = mx.argmax(selected_logits, axis=-1)[..., None]
+                    selected_canonical = selected_canonical.reshape(*h.shape[:2], -1)
+                    return mx.take_along_axis(selected_canonical, best, axis=-1).squeeze(-1)
+                self.masked_embedding.argmax = wrapped_argmax
+                try:
+                    return orig_draft_block(self, *args, **kwargs)
+                finally:
+                    self.masked_embedding.argmax = orig_argmax
+            return orig_draft_block(self, *args, **kwargs)
+        gemma4_assistant.Gemma4AssistantDraftModel.draft_block = patched_draft_block
+
+        gemma4_assistant._tpm_quant_patched = True
+        logger.debug("Successfully installed Gemma 4 Assistant QuantizedEmbedding patch.")
+    except Exception as e:
+        logger.warning(f"Could not apply Gemma 4 Assistant QuantizedEmbedding patch: {e}")
+
+
 class MLXEngine:
     """
     Unified High-Performance Engine for Apple Silicon (MLX).
@@ -129,11 +199,11 @@ class MLXEngine:
         self.model, self.processor, self.config = load_bonsai2_model(self.model_path)
         self.tokenizer = getattr(self.processor, "tokenizer", self.processor)
 
-
     def _init_vlm_backend(self):
         """Initializes mlx-vlm model, processor, and optional MTP drafter."""
         import mlx_vlm.utils
         from mlx_vlm.speculative import load_drafter
+        _patch_gemma4_assistant_quantized_embeddings()
         
         self.draft_model = None
         self.draft_kind = "none"
@@ -383,8 +453,11 @@ class MLXEngine:
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+        if self.max_kv_size is not None:
+            gen_kwargs["max_kv_size"] = self.max_kv_size
+
         if images:
-            gen_kwargs["images"] = images
+            gen_kwargs["image"] = images
             
         if self.draft_model is not None:
             gen_kwargs["draft_model"] = self.draft_model
@@ -399,23 +472,24 @@ class MLXEngine:
         for n, resp in enumerate(vlm_stream_generate(self.model, self.processor, **gen_kwargs)):
             if n == 0:
                 prompt_time = time.perf_counter() - tic
-                prompt_tps = prompt_tokens / max(prompt_time, 1e-6)
+                prompt_tps = getattr(resp, "prompt_tps", 0.0) or (prompt_tokens / max(prompt_time, 1e-6))
                 tic = time.perf_counter()
                 
             elapsed = time.perf_counter() - tic
-            gen_tps = (n + 1) / max(elapsed, 1e-6)
+            calculated_gen_tps = (n + 1) / max(elapsed, 1e-6)
+            gen_tps = getattr(resp, "generation_tps", 0.0) or calculated_gen_tps
             
             yield GenerationResponse(
                 text=resp.text,
                 token=getattr(resp, "token", 0),
                 logprobs=getattr(resp, "logprobs", mx.array([])),
                 from_draft=getattr(resp, "from_draft", False),
-                prompt_tokens=prompt_tokens,
+                prompt_tokens=getattr(resp, "prompt_tokens", prompt_tokens),
                 prompt_tps=prompt_tps,
-                generation_tokens=n + 1,
+                generation_tokens=getattr(resp, "generation_tokens", n + 1),
                 generation_tps=gen_tps,
-                peak_memory=mx.get_peak_memory() / 1e9,
-                finish_reason=None,
+                peak_memory=getattr(resp, "peak_memory", mx.get_peak_memory() / 1e9),
+                finish_reason=getattr(resp, "finish_reason", None),
             )
 
     def generate_stream(

@@ -123,16 +123,16 @@ def test_director_fallback_when_no_engine():
 
 
 def test_models_image_draft_isolation():
-    """Verifies that image models report zero draft/mtp parameters on /v1/models."""
+    """Verifies that image models report zero draft/mtp parameters and no draft assistants are active."""
     from tpm_mlx import state
     client = TestClient(app)
 
-    # Set mock state to an image model
     prev_model = state.loaded_model_id
     prev_draft = state.loaded_draft_model_id
     try:
         state.loaded_model_id = "justintime47/Z-Image-Turbo-MLX-Serve-8bit"
-        state.loaded_draft_model_id = None
+        # Even if a stale draft was left in memory, list_models should isolate it
+        state.loaded_draft_model_id = "mlx-community/gemma-4-E2B-it-assistant-bf16"
 
         resp = client.get("/v1/models")
         assert resp.status_code == 200
@@ -152,7 +152,162 @@ def test_models_image_draft_isolation():
         assert item["is_draft"] is False
         assert item["draft_model"] is None
         assert item["has_mtp"] is False
+
+        # Strictly verify that NO draft assistant has active: True
+        active_drafts = [m for m in data["data"] if m.get("is_draft") and m.get("active")]
+        assert len(active_drafts) == 0
+
+        # Strictly verify that no OTHER image model is marked active
+        other_active_images = [m for m in data["data"] if m.get("is_image") and m["id"] != "justintime47/Z-Image-Turbo-MLX-Serve-8bit" and m.get("active")]
+        assert len(other_active_images) == 0
     finally:
         state.loaded_model_id = prev_model
         state.loaded_draft_model_id = prev_draft
+
+
+def test_models_text_draft_active():
+    """Verifies that when a text LLM is active, image models in catalog have active: False."""
+    from tpm_mlx import state
+    client = TestClient(app)
+
+    prev_model = state.loaded_model_id
+    prev_draft = state.loaded_draft_model_id
+    try:
+        state.loaded_model_id = "mlx-community/gemma-4-e2b-it-4bit"
+        state.loaded_draft_model_id = "mlx-community/gemma-4-E2B-it-assistant-bf16"
+
+        resp = client.get("/v1/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["active_model"] == "mlx-community/gemma-4-e2b-it-4bit"
+        assert data["active_draft_model"] == "mlx-community/gemma-4-E2B-it-assistant-bf16"
+
+        # Check that image models in cache are NOT active
+        active_images = [m for m in data["data"] if m.get("is_image") and m.get("active")]
+        assert len(active_images) == 0
+
+        # Exactly one LLM base model is active
+        active_llms = [m for m in data["data"] if not m.get("is_draft") and not m.get("is_image") and m.get("active")]
+        assert len(active_llms) == 1
+        assert active_llms[0]["id"] == "mlx-community/gemma-4-e2b-it-4bit"
+    finally:
+        state.loaded_model_id = prev_model
+        state.loaded_draft_model_id = prev_draft
+
+
+def test_models_loading_telemetry_and_alias():
+    """Verifies that /v1/models reports in-flight loading state and /v1/models/load is aliased."""
+    from tpm_mlx import state
+    client = TestClient(app)
+
+    prev_loading = state.is_loading
+    prev_loading_model = state.loading_model_id
+    try:
+        state.is_loading = True
+        state.loading_model_id = "mlx-community/Qwen3.8-27B-4bit"
+
+        resp = client.get("/v1/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["is_loading"] is True
+        assert data["loading_model"] == "mlx-community/Qwen3.8-27B-4bit"
+        assert data["status"] == "loading"
+
+        # Check in the data item list
+        loading_items = [m for m in data["data"] if m["id"] == "mlx-community/Qwen3.8-27B-4bit"]
+        assert len(loading_items) >= 1
+        assert loading_items[0]["status"] == "loading"
+    finally:
+        state.is_loading = prev_loading
+        state.loading_model_id = prev_loading_model
+
+    # Verify unloading works via /v1/models/load alias
+    resp_unload = client.post("/v1/models/load", json={"model": "none"})
+    assert resp_unload.status_code == 200
+    assert resp_unload.json()["status"] == "success"
+
+
+def test_chat_completions_503_during_model_loading():
+    """Verifies that chat completions returns 503 with Retry-After when model is actively loading."""
+    from tpm_mlx import state
+    client = TestClient(app)
+
+    prev_engine = state.engine
+    prev_loading = state.is_loading
+    prev_loading_model = state.loading_model_id
+    try:
+        state.engine = None
+        state.is_loading = True
+        state.loading_model_id = "mlx-community/Qwen3.8-27B-4bit"
+        state.loading_task = None  # No active task to wait on, triggers immediate 503
+
+        resp = client.post("/v1/chat/completions", json={
+            "model": "mlx-community/Qwen3.8-27B-4bit",
+            "messages": [{"role": "user", "content": "Hello"}]
+        })
+        assert resp.status_code == 503
+        assert "currently loading" in resp.json()["detail"]
+        assert resp.headers.get("Retry-After") == "5"
+    finally:
+        state.engine = prev_engine
+        state.is_loading = prev_loading
+        state.loading_model_id = prev_loading_model
+
+
+def test_load_engine_instant_return_if_already_loaded():
+    """Verifies that load_engine returns immediately when requested model is already active in memory."""
+    import asyncio
+    from tpm_mlx import state
+    from unittest.mock import MagicMock
+
+    dummy_engine = MagicMock()
+    dummy_engine.max_kv_size = 4096
+    dummy_engine.speculation_mode = "none"
+
+    prev_engine = state.engine
+    prev_model = state.loaded_model_id
+    prev_draft = state.loaded_draft_model_id
+    try:
+        state.engine = dummy_engine
+        state.loaded_model_id = "test-model-active"
+        state.loaded_draft_model_id = None
+
+        res = asyncio.run(state.load_engine(
+            model_id="test-model-active",
+            max_kv_size=4096,
+            draft_model=None,
+        ))
+        assert res is dummy_engine
+    finally:
+        state.engine = prev_engine
+        state.loaded_model_id = prev_model
+        state.loaded_draft_model_id = prev_draft
+
+
+def test_auto_pair_companion_mtp_draft():
+    """Verifies that __AUTO__ or unprovided draft model auto-pairs with companion MTP assistant."""
+    from unittest.mock import patch, AsyncMock
+    from tpm_mlx import state
+
+    client = TestClient(app)
+    mock_engine = AsyncMock()
+
+    with patch("tpm_mlx.state.load_engine", new=mock_engine), \
+         patch("tpm_mlx.routes.models.get_cached_models") as mock_cached:
+        mock_cached.return_value = [
+            {"repo_id": "mlx-community/Qwen3.6-35B-A3B-4bit", "is_draft": False},
+            {"repo_id": "mlx-community/Qwen3.6-35B-A3B-MTP-4bit", "is_draft": True},
+        ]
+        resp = client.post("/v1/models/load", json={
+            "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
+            "draft_model": "__AUTO__"
+        })
+        assert resp.status_code == 200
+        # Verify load_engine was called with the auto-paired MTP draft model
+        mock_engine.assert_called_once()
+        call_kwargs = mock_engine.call_args.kwargs
+        assert call_kwargs["draft_model"] == "mlx-community/Qwen3.6-35B-A3B-MTP-4bit"
+
+
+
 

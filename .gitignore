@@ -86,3 +86,6 @@ docs/
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Scratch directory
+scratch/

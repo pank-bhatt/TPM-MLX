@@ -16,3 +16,4 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     stream: bool = False
     reasoning: Optional[bool] = Field(default=None, description="Toggles outputting reasoning <think> blocks")
+    tools: Optional[List[Dict[str, Any]]] = Field(default=None, description="OpenAI-compatible tools list")

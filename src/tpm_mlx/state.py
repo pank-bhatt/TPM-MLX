@@ -31,6 +31,13 @@ loaded_model_id: Optional[str] = None
 loaded_draft_model_id: Optional[str] = None
 model_loading_lock = asyncio.Lock()
 
+# Model loading lifecycle telemetry and in-flight tracking
+is_loading: bool = False
+loading_model_id: Optional[str] = None
+loading_start_time: Optional[float] = None
+loading_task: Optional[asyncio.Task] = None
+loading_error: Optional[str] = None
+
 # Global image diffusion engine state (lazy-loaded on demand)
 image_engine: Optional[Any] = None
 loaded_image_model_id: Optional[str] = None
@@ -119,13 +126,49 @@ async def load_engine(
     and speculative decoding (MTP head or companion draft assistant).
     """
     global engine, loaded_model_id, loaded_draft_model_id, mlx_executor
+    global is_loading, loading_model_id, loading_start_time, loading_task, loading_error
+
+    clean_draft = draft_model if draft_model and draft_model.strip() else None
+
+    # 1. Immediate return if model is already loaded and active in memory
+    if (
+        engine is not None
+        and loaded_model_id == model_id
+        and loaded_draft_model_id == clean_draft
+        and getattr(engine, "max_kv_size", default_max_kv_size) == max_kv_size
+    ):
+        logger.info(f"Model {model_id} already loaded and ready in Unified Memory.")
+        return engine
+
+    # 2. De-duplicate if load for this exact model is currently active in background
+    if is_loading and loading_model_id == model_id and loading_task is not None and not loading_task.done():
+        logger.info(f"Model {model_id} is already loading in background; attaching to active task...")
+        return await asyncio.shield(loading_task)
+
     async with model_loading_lock:
-        logger.info(f"Loading model: {model_id} (KV Cache Size: {max_kv_size}, Draft: {draft_model}, MTP: {enable_mtp})...")
+        # Re-check inside lock
+        if (
+            engine is not None
+            and loaded_model_id == model_id
+            and loaded_draft_model_id == clean_draft
+            and getattr(engine, "max_kv_size", default_max_kv_size) == max_kv_size
+        ):
+            return engine
+
+        is_loading = True
+        loading_model_id = model_id
+        loading_start_time = time.time()
+        loading_error = None
+
+        logger.info(f"Loading model: {model_id} (KV Cache Size: {max_kv_size}, Draft: {clean_draft}, MTP: {enable_mtp})...")
         start_time = time.perf_counter()
 
         # Clean up existing engine and release Metal GPU buffers before loading new model
         old_engine = engine
         engine = None
+        loaded_model_id = None
+        loaded_draft_model_id = None
+
         if old_engine is not None:
             try:
                 del old_engine.model
@@ -146,7 +189,7 @@ async def load_engine(
                 eng = MLXEngine(
                     model_path_or_id=model_id,
                     max_kv_size=max_kv_size,
-                    draft_model_path_or_id=draft_model if draft_model and draft_model.strip() else None,
+                    draft_model_path_or_id=clean_draft,
                     enable_mtp=enable_mtp,
                     num_draft_tokens=num_draft_tokens,
                 )
@@ -156,7 +199,7 @@ async def load_engine(
                 eng = MLXEngine(
                     model_path_or_id=model_id,
                     max_kv_size=max_kv_size,
-                    draft_model_path_or_id=draft_model if draft_model and draft_model.strip() else None,
+                    draft_model_path_or_id=clean_draft,
                     enable_mtp=enable_mtp,
                     num_draft_tokens=num_draft_tokens,
                 )
@@ -168,15 +211,27 @@ async def load_engine(
 
             return eng
 
-        loop = asyncio.get_running_loop()
-        new_engine = await loop.run_in_executor(mlx_executor, init_engine)
+        try:
+            loop = asyncio.get_running_loop()
+            new_engine = await loop.run_in_executor(mlx_executor, init_engine)
 
-        engine = new_engine
-        loaded_model_id = model_id
-        loaded_draft_model_id = draft_model if draft_model and draft_model.strip() else None
-        duration = time.perf_counter() - start_time
-        logger.info(f"Successfully loaded {model_id} [Speculation: {engine.speculation_mode.upper()}] in {duration:.2f}s")
-        return engine
+            engine = new_engine
+            loaded_model_id = model_id
+            loaded_draft_model_id = clean_draft
+            duration = time.perf_counter() - start_time
+            logger.info(f"Successfully loaded {model_id} [Speculation: {engine.speculation_mode.upper()}] in {duration:.2f}s")
+            return engine
+        except Exception as e:
+            loading_error = str(e)
+            logger.error(f"Failed to load model {model_id}: {e}", exc_info=True)
+            engine = None
+            loaded_model_id = None
+            loaded_draft_model_id = None
+            raise
+        finally:
+            is_loading = False
+            loading_model_id = None
+            loading_task = None
 
 
 # Backwards compatibility aliases
