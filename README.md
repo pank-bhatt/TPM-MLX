@@ -1,6 +1,6 @@
 # TPM-MLX: Optimized Apple Silicon Inference Engine
 
-![TPM-MLX vs Ollama Benchmarks](tpm_mlx_vs_ollama_benchmarks.png)
+![TPM-MLX vs Ollama Benchmarks](benchmarks/text/tpm_mlx_vs_ollama_benchmarks.png)
 
 **TPM-MLX (`tpm`)** is a zero-bloat, high-performance local inference engine designed specifically for Apple Silicon hardware. Powered by Apple’s native `mlx`, `mlx-lm`, and `mlx-vlm` Metal kernels, it achieves state-of-the-art tokens-per-second (TPS) throughput by combining:
 - **Native Multi-Token Prediction (MTP) Self-Speculation** (up to **1.61× speedup** on 27B models).
@@ -56,21 +56,23 @@
 | **Qwen 2.5 1.5B** | 1.5B Dense Edge | 4-bit | Standard Autoregressive | 213.15 TPS | **213.15 TPS** | Instant Edge Inference |
 | **Gemma 3 1B IT** | 1B Dense Edge | 4-bit | Standard Autoregressive | 247.88 TPS | **247.88 TPS** | Ultra-Fast Edge |
 
-### 🎨 Verified & Supported Image Generation Models
+### 🎨 Verified & Supported Image Generation & Editing Models
 
-TPM-MLX integrates native Apple Silicon flow-matching diffusion backends (`MLXImageEngine`). The table below compares the 3 supported models benchmarked on an Apple Silicon Mac (M4 Pro, 64GB) on an identical standardized prompt:
+TPM-MLX integrates native Apple Silicon flow-matching diffusion backends (`MLXImageEngine`). The table below summarizes the 6 supported models benchmarked on Apple Silicon (64 GB Unified Memory) with fixed seed `42` (see the full 24-run text-to-image + 3-model editing report in **[`benchmarks/image/README.md`](benchmarks/image/README.md)**):
 
-> *"A cinematic photograph of an ancient stone temple nestled in a misty bamboo forest at dawn, rays of golden sunlight piercing through the canopy, moss-covered statues, photorealistic 8k"* (512×512, 4 steps, seed=42)
-
-| Model | Architecture | Quantization | Disk Size | Load Time | Response Time | Step Rate | Peak VRAM | Native Editing | Primary Strength |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Bonsai 4B** | Flow-Matching | 2-bit Ternary | **3.62 GB** | 2.29s | **13.18s** | **3.30s/step** | **3.42 GB** | ❌ | **Extreme Efficiency:** Lowest disk & RAM footprint, runs easily on 8GB/16GB Macs. |
-| **FLUX.2 Klein 9B** | Rectified Flow | 4-bit Affine | 8.89 GB | **0.75s** | 15.84s | 3.96s/step | 6.64 GB | **✅ Yes** | **Studio Photorealism:** Best lighting/textures and exclusive instruction editing (`/v1/images/edits`). |
-| **Z-Image Turbo** | Flow-Matching | 8-bit Affine | 11.05 GB | 1.53s | 14.09s | 3.52s/step | 11.02 GB | ❌ | **High-Precision Detail:** 8-bit weights, superior sign/text rendering, sharp geometry. |
+| Model | Architecture | Quantization | Steps | `512×512` Time | `1024×1024` Time | Peak VRAM | Native Editing | Primary Strength |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **FLUX.2 Klein 4B** | Rectified Flow | Unquantized BF16 | `4` | **6.45s** | **27.46s** | 14.12–19.44 GB | ❌ | **Speed Champion:** Fastest generation across both `512×512` and `1024×1024`. |
+| **Bonsai 4B** | Flow-Matching | 2-bit Ternary | `4` | 9.50s | 30.73s | **8.21–11.33 GB** | ❌ | **Extreme Memory Efficiency:** Lowest baseline footprint for 8GB/16GB Macs. |
+| **Z-Image Turbo** | Flow-Matching | 8-bit Affine | `4` | 10.32s | 47.22s | 16.17–25.93 GB | ❌ | **High-Precision Detail:** 8-bit weights, crisp typography & geometry. |
+| **FLUX.2 Klein 9B** | Rectified Flow | 4-bit Affine | `4` | 14.10s | 57.84s | 11.88–14.57 GB | **✅ Yes** | **Holistic Scene Relighting:** Exceptional 9B photorealism and environmental editing. |
+| **Qwen-Image 2.1 Turbo** | Qwen3-VL + DiT | 4-bit Affine | `8` | 20.81s | 96.49s | **9.43 GB** | **✅ Yes** | **Fast Multimodal Editor:** 4.7× faster than Base, strict pose/identity lock (`10.26 GB` edit VRAM). |
+| **Qwen-Image 2.1 Base** | Qwen3-VL + DiT | 4-bit Affine | `40` | 99.92s | 451.56s | **9.43 GB** | **✅ Yes** | **Maximum Micro-Texture:** 40-step linear refinement for skin pores, fabric, and bokeh. |
 
 > [!TIP]
-> All three models feature distilled 4-step sampling, allowing complete text-to-image generation in under 16 seconds directly on Apple Silicon without external cloud dependencies.
-> View the complete 13-model LLM benchmark report and hardware performance analysis in [BENCHMARKS.md](BENCHMARKS.md).
+> Browse all benchmark reports in **[`benchmarks/`](benchmarks/README.md)**:
+> - **[Text & LLM Speculative Decoding Benchmarks (`benchmarks/text/`)](benchmarks/text/README.md)**
+> - **[Image Generation & Editing Benchmarks (`benchmarks/image/`)](benchmarks/image/README.md)**
 
 ---
 
@@ -130,10 +132,10 @@ uv run tpm generate-image --model justintime47/Z-Image-Turbo-MLX-Serve-8bit --pr
 ### 4. Run Benchmarks
 ```bash
 # Single Model Benchmark:
-uv run python benchmarks/benchmark.py --model "mlx-community/Qwen3.8-27B-4bit" --draft-model "mlx-community/Qwen3.8-27B-MTP-4bit"
+uv run python benchmarks/text/benchmark.py --model "mlx-community/Qwen3.8-27B-4bit" --draft-model "mlx-community/Qwen3.8-27B-MTP-4bit"
 
 # Full 13-Model Hardware Sanity & Matrix Suite:
-uv run python benchmarks/run_full_matrix.py
+uv run python benchmarks/text/run_full_matrix.py
 ```
 
 ---

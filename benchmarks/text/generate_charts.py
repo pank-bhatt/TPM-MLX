@@ -88,6 +88,7 @@ plt.suptitle('TPM-MLX vs Ollama Performance Benchmarks (Apple M4 Pro)', fontsize
 plt.tight_layout()
 
 # Save the plot
-output_path = 'tpm_mlx_vs_ollama_benchmarks.png'
+from pathlib import Path
+output_path = Path(__file__).parent / 'tpm_mlx_vs_ollama_benchmarks.png'
 plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#121212')
 print(f"Chart saved to {output_path}")

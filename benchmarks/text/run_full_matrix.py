@@ -206,7 +206,7 @@ def run_matrix():
     print("=" * 80)
 
     # Save to JSON
-    out_file = Path("/Users/pank/Experiments/MLX/benchmarks/matrix_results.json")
+    out_file = Path(__file__).parent / "matrix_results.json"
     with open(out_file, "w") as f:
         json.dump(results, f, indent=2)
     print(f"Saved full results to {out_file}")

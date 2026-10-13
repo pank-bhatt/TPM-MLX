@@ -47,6 +47,6 @@ pytest benchmarks/test_engine.py benchmarks/test_mtp.py -v
 # 11 passed in 0.73s
 
 # Full model matrix benchmark pass:
-python benchmarks/run_full_matrix.py
+python benchmarks/text/run_full_matrix.py
 # 13/13 models PASS
 ```

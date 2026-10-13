@@ -11,30 +11,30 @@
 
 | Model | Quantization | Steps | Configuration | Resolution | Generation Time | Step Time | Peak RAM / VRAM | Generated Output |
 | :--- | :---: | :---: | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Bonsai 4B** | 2-bit Ternary | `4` | 🪄 With AI Director | `512x512` | **9.50s** | `2.38s` | **8.57 GB** | [`bonsai_4b_2bit_with_director_512.png`](benchmark_images/bonsai_4b_2bit_with_director_512.png) |
-| **Bonsai 4B** | 2-bit Ternary | `4` | 🪄 With AI Director | `1024x1024` | **30.73s** | `7.68s` | **11.33 GB** | [`bonsai_4b_2bit_with_director_1024.png`](benchmark_images/bonsai_4b_2bit_with_director_1024.png) |
-| **Bonsai 4B** | 2-bit Ternary | `4` | ⚡ Direct (No Director) | `512x512` | **9.50s** | `2.38s` | **12.16 GB** | [`bonsai_4b_2bit_without_director_512.png`](benchmark_images/bonsai_4b_2bit_without_director_512.png) |
-| **Bonsai 4B** | 2-bit Ternary | `4` | ⚡ Direct (No Director) | `1024x1024` | **31.26s** | `7.82s` | **8.21 GB** | [`bonsai_4b_2bit_without_director_1024.png`](benchmark_images/bonsai_4b_2bit_without_director_1024.png) |
-| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | 🪄 With AI Director | `512x512` | **14.76s** | `3.69s` | **11.88 GB** | [`flux2_klein_9b_4bit_with_director_512.png`](benchmark_images/flux2_klein_9b_4bit_with_director_512.png) |
-| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | 🪄 With AI Director | `1024x1024` | **60.79s** | `15.20s` | **14.57 GB** | [`flux2_klein_9b_4bit_with_director_1024.png`](benchmark_images/flux2_klein_9b_4bit_with_director_1024.png) |
-| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | ⚡ Direct (No Director) | `512x512` | **14.10s** | `3.53s` | **13.70 GB** | [`flux2_klein_9b_4bit_without_director_512.png`](benchmark_images/flux2_klein_9b_4bit_without_director_512.png) |
-| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | ⚡ Direct (No Director) | `1024x1024` | **57.84s** | `14.46s` | **12.16 GB** | [`flux2_klein_9b_4bit_without_director_1024.png`](benchmark_images/flux2_klein_9b_4bit_without_director_1024.png) |
-| **Z-Image Turbo** | 8-bit Affine | `4` | 🪄 With AI Director | `512x512` | **10.32s** | `2.58s` | **16.17 GB** | [`z_image_turbo_8bit_with_director_512.png`](benchmark_images/z_image_turbo_8bit_with_director_512.png) |
-| **Z-Image Turbo** | 8-bit Affine | `4` | 🪄 With AI Director | `1024x1024` | **47.22s** | `11.81s` | **25.93 GB** | [`z_image_turbo_8bit_with_director_1024.png`](benchmark_images/z_image_turbo_8bit_with_director_1024.png) |
-| **Z-Image Turbo** | 8-bit Affine | `4` | ⚡ Direct (No Director) | `512x512` | **11.69s** | `2.92s` | **16.17 GB** | [`z_image_turbo_8bit_without_director_512.png`](benchmark_images/z_image_turbo_8bit_without_director_512.png) |
-| **Z-Image Turbo** | 8-bit Affine | `4` | ⚡ Direct (No Director) | `1024x1024` | **47.69s** | `11.92s` | **25.93 GB** | [`z_image_turbo_8bit_without_director_1024.png`](benchmark_images/z_image_turbo_8bit_without_director_1024.png) |
-| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | 🪄 With AI Director | `512x512` | **7.41s** | `1.85s` | **14.12 GB** | [`flux2_klein_4b_bf16_with_director_512.png`](benchmark_images/flux2_klein_4b_bf16_with_director_512.png) |
-| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | 🪄 With AI Director | `1024x1024` | **27.87s** | `6.97s` | **19.44 GB** | [`flux2_klein_4b_bf16_with_director_1024.png`](benchmark_images/flux2_klein_4b_bf16_with_director_1024.png) |
-| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | ⚡ Direct (No Director) | `512x512` | **6.45s** | `1.61s` | **19.29 GB** | [`flux2_klein_4b_bf16_without_director_512.png`](benchmark_images/flux2_klein_4b_bf16_without_director_512.png) |
-| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | ⚡ Direct (No Director) | `1024x1024` | **27.46s** | `6.86s` | **14.53 GB** | [`flux2_klein_4b_bf16_without_director_1024.png`](benchmark_images/flux2_klein_4b_bf16_without_director_1024.png) |
-| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | 🪄 With AI Director | `512x512` | **20.81s** | `2.60s` | **9.43 GB** | [`qwen21_turbo_4bit_with_director_512.png`](benchmark_images/qwen21_turbo_4bit_with_director_512.png) |
-| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | 🪄 With AI Director | `1024x1024` | **96.49s** | `12.06s` | **9.43 GB** | [`qwen21_turbo_4bit_with_director_1024.png`](benchmark_images/qwen21_turbo_4bit_with_director_1024.png) |
-| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | ⚡ Direct (No Director) | `512x512` | **32.66s** | `4.08s` | **9.43 GB** | [`qwen21_turbo_4bit_without_director_512.png`](benchmark_images/qwen21_turbo_4bit_without_director_512.png) |
-| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | ⚡ Direct (No Director) | `1024x1024` | **99.11s** | `12.39s` | **9.43 GB** | [`qwen21_turbo_4bit_without_director_1024.png`](benchmark_images/qwen21_turbo_4bit_without_director_1024.png) |
-| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | 🪄 With AI Director | `512x512` | **99.92s** | `2.50s` | **9.43 GB** | [`qwen21_base_4bit_with_director_512.png`](benchmark_images/qwen21_base_4bit_with_director_512.png) |
-| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | 🪄 With AI Director | `1024x1024` | **451.56s** | `11.29s` | **9.43 GB** | [`qwen21_base_4bit_with_director_1024.png`](benchmark_images/qwen21_base_4bit_with_director_1024.png) |
-| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | ⚡ Direct (No Director) | `512x512` | **107.03s** | `2.68s` | **9.43 GB** | [`qwen21_base_4bit_without_director_512.png`](benchmark_images/qwen21_base_4bit_without_director_512.png) |
-| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | ⚡ Direct (No Director) | `1024x1024` | **455.90s** | `11.40s` | **9.43 GB** | [`qwen21_base_4bit_without_director_1024.png`](benchmark_images/qwen21_base_4bit_without_director_1024.png) |
+| **Bonsai 4B** | 2-bit Ternary | `4` | 🪄 With AI Director | `512x512` | **9.50s** | `2.38s` | **8.57 GB** | [`bonsai_4b_2bit_with_director_512.png`](images/bonsai_4b_2bit_with_director_512.png) |
+| **Bonsai 4B** | 2-bit Ternary | `4` | 🪄 With AI Director | `1024x1024` | **30.73s** | `7.68s` | **11.33 GB** | [`bonsai_4b_2bit_with_director_1024.png`](images/bonsai_4b_2bit_with_director_1024.png) |
+| **Bonsai 4B** | 2-bit Ternary | `4` | ⚡ Direct (No Director) | `512x512` | **9.50s** | `2.38s` | **12.16 GB** | [`bonsai_4b_2bit_without_director_512.png`](images/bonsai_4b_2bit_without_director_512.png) |
+| **Bonsai 4B** | 2-bit Ternary | `4` | ⚡ Direct (No Director) | `1024x1024` | **31.26s** | `7.82s` | **8.21 GB** | [`bonsai_4b_2bit_without_director_1024.png`](images/bonsai_4b_2bit_without_director_1024.png) |
+| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | 🪄 With AI Director | `512x512` | **14.76s** | `3.69s` | **11.88 GB** | [`flux2_klein_9b_4bit_with_director_512.png`](images/flux2_klein_9b_4bit_with_director_512.png) |
+| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | 🪄 With AI Director | `1024x1024` | **60.79s** | `15.20s` | **14.57 GB** | [`flux2_klein_9b_4bit_with_director_1024.png`](images/flux2_klein_9b_4bit_with_director_1024.png) |
+| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | ⚡ Direct (No Director) | `512x512` | **14.10s** | `3.53s` | **13.70 GB** | [`flux2_klein_9b_4bit_without_director_512.png`](images/flux2_klein_9b_4bit_without_director_512.png) |
+| **FLUX.2 Klein 9B** | 4-bit Affine | `4` | ⚡ Direct (No Director) | `1024x1024` | **57.84s** | `14.46s` | **12.16 GB** | [`flux2_klein_9b_4bit_without_director_1024.png`](images/flux2_klein_9b_4bit_without_director_1024.png) |
+| **Z-Image Turbo** | 8-bit Affine | `4` | 🪄 With AI Director | `512x512` | **10.32s** | `2.58s` | **16.17 GB** | [`z_image_turbo_8bit_with_director_512.png`](images/z_image_turbo_8bit_with_director_512.png) |
+| **Z-Image Turbo** | 8-bit Affine | `4` | 🪄 With AI Director | `1024x1024` | **47.22s** | `11.81s` | **25.93 GB** | [`z_image_turbo_8bit_with_director_1024.png`](images/z_image_turbo_8bit_with_director_1024.png) |
+| **Z-Image Turbo** | 8-bit Affine | `4` | ⚡ Direct (No Director) | `512x512` | **11.69s** | `2.92s` | **16.17 GB** | [`z_image_turbo_8bit_without_director_512.png`](images/z_image_turbo_8bit_without_director_512.png) |
+| **Z-Image Turbo** | 8-bit Affine | `4` | ⚡ Direct (No Director) | `1024x1024` | **47.69s** | `11.92s` | **25.93 GB** | [`z_image_turbo_8bit_without_director_1024.png`](images/z_image_turbo_8bit_without_director_1024.png) |
+| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | 🪄 With AI Director | `512x512` | **7.41s** | `1.85s` | **14.12 GB** | [`flux2_klein_4b_bf16_with_director_512.png`](images/flux2_klein_4b_bf16_with_director_512.png) |
+| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | 🪄 With AI Director | `1024x1024` | **27.87s** | `6.97s` | **19.44 GB** | [`flux2_klein_4b_bf16_with_director_1024.png`](images/flux2_klein_4b_bf16_with_director_1024.png) |
+| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | ⚡ Direct (No Director) | `512x512` | **6.45s** | `1.61s` | **19.29 GB** | [`flux2_klein_4b_bf16_without_director_512.png`](images/flux2_klein_4b_bf16_without_director_512.png) |
+| **FLUX.2 Klein 4B** | Unquantized BF16 | `4` | ⚡ Direct (No Director) | `1024x1024` | **27.46s** | `6.86s` | **14.53 GB** | [`flux2_klein_4b_bf16_without_director_1024.png`](images/flux2_klein_4b_bf16_without_director_1024.png) |
+| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | 🪄 With AI Director | `512x512` | **20.81s** | `2.60s` | **9.43 GB** | [`qwen21_turbo_4bit_with_director_512.png`](images/qwen21_turbo_4bit_with_director_512.png) |
+| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | 🪄 With AI Director | `1024x1024` | **96.49s** | `12.06s` | **9.43 GB** | [`qwen21_turbo_4bit_with_director_1024.png`](images/qwen21_turbo_4bit_with_director_1024.png) |
+| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | ⚡ Direct (No Director) | `512x512` | **32.66s** | `4.08s` | **9.43 GB** | [`qwen21_turbo_4bit_without_director_512.png`](images/qwen21_turbo_4bit_without_director_512.png) |
+| **Qwen-Image 2.1 Turbo** | 4-bit Affine | `8` | ⚡ Direct (No Director) | `1024x1024` | **99.11s** | `12.39s` | **9.43 GB** | [`qwen21_turbo_4bit_without_director_1024.png`](images/qwen21_turbo_4bit_without_director_1024.png) |
+| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | 🪄 With AI Director | `512x512` | **99.92s** | `2.50s` | **9.43 GB** | [`qwen21_base_4bit_with_director_512.png`](images/qwen21_base_4bit_with_director_512.png) |
+| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | 🪄 With AI Director | `1024x1024` | **451.56s** | `11.29s` | **9.43 GB** | [`qwen21_base_4bit_with_director_1024.png`](images/qwen21_base_4bit_with_director_1024.png) |
+| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | ⚡ Direct (No Director) | `512x512` | **107.03s** | `2.68s` | **9.43 GB** | [`qwen21_base_4bit_without_director_512.png`](images/qwen21_base_4bit_without_director_512.png) |
+| **Qwen-Image 2.1 Base** | 4-bit Affine | `40` | ⚡ Direct (No Director) | `1024x1024` | **455.90s** | `11.40s` | **9.43 GB** | [`qwen21_base_4bit_without_director_1024.png`](images/qwen21_base_4bit_without_director_1024.png) |
 
 ---
 
@@ -50,7 +50,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic action shot of a determined football player mid-play on a lush, sun-drenched green field. Golden hour sunlight flares through stadium haze, casting long shadows. Sweat glistens on the player's jersey. Shallow depth of field, cinematic grading, ultra-detailed, 8k, shot on Arri Alexa."
 
-![Bonsai 4B (2-bit Ternary) - With AI Director (512x512)](benchmark_images/bonsai_4b_2bit_with_director_512.png)
+![Bonsai 4B (2-bit Ternary) - With AI Director (512x512)](images/bonsai_4b_2bit_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `30.73s` (Step Rate: `7.684s/step`)
@@ -58,21 +58,21 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic action shot of a determined football player mid-play on a vibrant green grass field. Golden hour sunlight casts long shadows, illuminating dust motes in the crisp, warm air. Intense focus, sweat glistening, dramatic low-angle composition. Cinematic, ultra-detailed, 8k photography."
 
-![Bonsai 4B (2-bit Ternary) - With AI Director (1024x1024)](benchmark_images/bonsai_4b_2bit_with_director_1024.png)
+![Bonsai 4B (2-bit Ternary) - With AI Director (1024x1024)](images/bonsai_4b_2bit_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `9.50s` (Step Rate: `2.375s/step`)
 - **Peak Unified Memory:** `12.16 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Bonsai 4B (2-bit Ternary) - Without AI Director (512x512)](benchmark_images/bonsai_4b_2bit_without_director_512.png)
+![Bonsai 4B (2-bit Ternary) - Without AI Director (512x512)](images/bonsai_4b_2bit_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `31.26s` (Step Rate: `7.816s/step`)
 - **Peak Unified Memory:** `8.21 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Bonsai 4B (2-bit Ternary) - Without AI Director (1024x1024)](benchmark_images/bonsai_4b_2bit_without_director_1024.png)
+![Bonsai 4B (2-bit Ternary) - Without AI Director (1024x1024)](images/bonsai_4b_2bit_without_director_1024.png)
 
 ---
 
@@ -86,7 +86,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic action shot of a determined football player mid-play on a vibrant green stadium field. Golden hour sunlight casts long shadows, illuminating dust motes in the crisp, warm air. Intense focus, sweat glistening, dramatic depth of field. Cinematic, high-speed photography."
 
-![FLUX.2 Klein 9B (4-bit Affine) - With AI Director (512x512)](benchmark_images/flux2_klein_9b_4bit_with_director_512.png)
+![FLUX.2 Klein 9B (4-bit Affine) - With AI Director (512x512)](images/flux2_klein_9b_4bit_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `60.79s` (Step Rate: `15.198s/step`)
@@ -94,21 +94,21 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic shot of a determined football player mid-action on a lush, sun-drenched green field. Golden hour sunlight casts long shadows, highlighting sweat and focused intensity on his face. Dust motes dance in the warm, directional backlighting. Shallow depth of field, cinematic grading, ultra-detailed, 85mm lens."
 
-![FLUX.2 Klein 9B (4-bit Affine) - With AI Director (1024x1024)](benchmark_images/flux2_klein_9b_4bit_with_director_1024.png)
+![FLUX.2 Klein 9B (4-bit Affine) - With AI Director (1024x1024)](images/flux2_klein_9b_4bit_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `14.10s` (Step Rate: `3.526s/step`)
 - **Peak Unified Memory:** `13.70 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![FLUX.2 Klein 9B (4-bit Affine) - Without AI Director (512x512)](benchmark_images/flux2_klein_9b_4bit_without_director_512.png)
+![FLUX.2 Klein 9B (4-bit Affine) - Without AI Director (512x512)](images/flux2_klein_9b_4bit_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `57.84s` (Step Rate: `14.461s/step`)
 - **Peak Unified Memory:** `12.16 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![FLUX.2 Klein 9B (4-bit Affine) - Without AI Director (1024x1024)](benchmark_images/flux2_klein_9b_4bit_without_director_1024.png)
+![FLUX.2 Klein 9B (4-bit Affine) - Without AI Director (1024x1024)](images/flux2_klein_9b_4bit_without_director_1024.png)
 
 ---
 
@@ -122,7 +122,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic shot of a determined football player mid-action on a vibrant green stadium field, golden hour sunlight casting long shadows, dust motes dancing in the warm, directional rim lighting. Intense focus, dynamic low-angle composition, cinematic depth of field."
 
-![Z-Image Turbo (8-bit Affine) - With AI Director (512x512)](benchmark_images/z_image_turbo_8bit_with_director_512.png)
+![Z-Image Turbo (8-bit Affine) - With AI Director (512x512)](images/z_image_turbo_8bit_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `47.22s` (Step Rate: `11.805s/step`)
@@ -130,21 +130,21 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic photograph of a determined football player mid-action on a lush, sun-drenched green field. Golden hour sunlight casts long shadows, highlighting sweat and focused intensity on his face. Dust motes dance in the warm, directional backlight. Shallow depth of field, cinematic wide shot."
 
-![Z-Image Turbo (8-bit Affine) - With AI Director (1024x1024)](benchmark_images/z_image_turbo_8bit_with_director_1024.png)
+![Z-Image Turbo (8-bit Affine) - With AI Director (1024x1024)](images/z_image_turbo_8bit_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `11.69s` (Step Rate: `2.923s/step`)
 - **Peak Unified Memory:** `16.17 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Z-Image Turbo (8-bit Affine) - Without AI Director (512x512)](benchmark_images/z_image_turbo_8bit_without_director_512.png)
+![Z-Image Turbo (8-bit Affine) - Without AI Director (512x512)](images/z_image_turbo_8bit_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `47.69s` (Step Rate: `11.922s/step`)
 - **Peak Unified Memory:** `25.93 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Z-Image Turbo (8-bit Affine) - Without AI Director (1024x1024)](benchmark_images/z_image_turbo_8bit_without_director_1024.png)
+![Z-Image Turbo (8-bit Affine) - Without AI Director (1024x1024)](images/z_image_turbo_8bit_without_director_1024.png)
 
 ---
 
@@ -158,7 +158,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Sweat-soaked professional football player mid-action on a vibrant green grass field, dramatic golden hour sunlight casting long shadows, dust motes catching the warm rim lighting. Intense focus, gritty texture, shallow depth of field, ultra-realistic, cinematic shot."
 
-![FLUX.2 Klein 4B (Unquantized BF16) - With AI Director (512x512)](benchmark_images/flux2_klein_4b_bf16_with_director_512.png)
+![FLUX.2 Klein 4B (Unquantized BF16) - With AI Director (512x512)](images/flux2_klein_4b_bf16_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `27.87s` (Step Rate: `6.969s/step`)
@@ -166,21 +166,21 @@
 - **AI Visual Director Expanded Prompt:**
   > "Hyperrealistic action shot of a determined football player mid-stride on a lush, sun-drenched green field. Golden hour sunlight casts long shadows, highlighting sweat and focused intensity on his face. Dynamic low-angle composition, shallow depth of field, cinematic grading, ultra-detailed, 8k."
 
-![FLUX.2 Klein 4B (Unquantized BF16) - With AI Director (1024x1024)](benchmark_images/flux2_klein_4b_bf16_with_director_1024.png)
+![FLUX.2 Klein 4B (Unquantized BF16) - With AI Director (1024x1024)](images/flux2_klein_4b_bf16_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `6.45s` (Step Rate: `1.613s/step`)
 - **Peak Unified Memory:** `19.29 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![FLUX.2 Klein 4B (Unquantized BF16) - Without AI Director (512x512)](benchmark_images/flux2_klein_4b_bf16_without_director_512.png)
+![FLUX.2 Klein 4B (Unquantized BF16) - Without AI Director (512x512)](images/flux2_klein_4b_bf16_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `27.46s` (Step Rate: `6.866s/step`)
 - **Peak Unified Memory:** `14.53 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![FLUX.2 Klein 4B (Unquantized BF16) - Without AI Director (1024x1024)](benchmark_images/flux2_klein_4b_bf16_without_director_1024.png)
+![FLUX.2 Klein 4B (Unquantized BF16) - Without AI Director (1024x1024)](images/flux2_klein_4b_bf16_without_director_1024.png)
 
 ---
 
@@ -195,7 +195,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Photorealistic, dynamic shot of a male football player mid-action on a sun-drenched, grassy field. Golden hour lighting casts long shadows. Intense focus, sweat glistening, vibrant green and earthy brown tones. Wide-angle, shallow depth of field."
 
-![Qwen-Image 2.1 Turbo (4-bit Affine) - With AI Director (512x512)](benchmark_images/qwen21_turbo_4bit_with_director_512.png)
+![Qwen-Image 2.1 Turbo (4-bit Affine) - With AI Director (512x512)](images/qwen21_turbo_4bit_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `96.49s` (Step Rate: `12.061s/step`)
@@ -203,21 +203,21 @@
 - **AI Visual Director Expanded Prompt:**
   > "Photorealistic, dynamic shot of a male football player mid-action on a sun-drenched, grassy field. Golden hour lighting casts long shadows. Intense focus, sweat glistening, vibrant green and earthy brown tones. Wide-angle, shallow depth of field."
 
-![Qwen-Image 2.1 Turbo (4-bit Affine) - With AI Director (1024x1024)](benchmark_images/qwen21_turbo_4bit_with_director_1024.png)
+![Qwen-Image 2.1 Turbo (4-bit Affine) - With AI Director (1024x1024)](images/qwen21_turbo_4bit_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `32.66s` (Step Rate: `4.082s/step`)
 - **Peak Unified Memory:** `9.43 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Qwen-Image 2.1 Turbo (4-bit Affine) - Without AI Director (512x512)](benchmark_images/qwen21_turbo_4bit_without_director_512.png)
+![Qwen-Image 2.1 Turbo (4-bit Affine) - Without AI Director (512x512)](images/qwen21_turbo_4bit_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `99.11s` (Step Rate: `12.388s/step`)
 - **Peak Unified Memory:** `9.43 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Qwen-Image 2.1 Turbo (4-bit Affine) - Without AI Director (1024x1024)](benchmark_images/qwen21_turbo_4bit_without_director_1024.png)
+![Qwen-Image 2.1 Turbo (4-bit Affine) - Without AI Director (1024x1024)](images/qwen21_turbo_4bit_without_director_1024.png)
 
 ---
 
@@ -232,7 +232,7 @@
 - **AI Visual Director Expanded Prompt:**
   > "Photo-realistic, dynamic shot of a male football player mid-action, intense focus, sweat glistening under bright afternoon sun, vibrant green grass, blurred background of spectators, high-speed motion, cinematic, sharp focus, natural skin tones."
 
-![Qwen-Image 2.1 Base (4-bit Affine) - With AI Director (512x512)](benchmark_images/qwen21_base_4bit_with_director_512.png)
+![Qwen-Image 2.1 Base (4-bit Affine) - With AI Director (512x512)](images/qwen21_base_4bit_with_director_512.png)
 
 #### With AI Director (1024x1024)
 - **Generation Time:** `451.56s` (Step Rate: `11.289s/step`)
@@ -240,27 +240,27 @@
 - **AI Visual Director Expanded Prompt:**
   > "Photo-realistic, dynamic shot of a male football player mid-action, intense focus, sweat glistening under bright afternoon sun, vibrant green grass, blurred background of spectators, high-speed motion, cinematic, sharp focus, natural skin tones."
 
-![Qwen-Image 2.1 Base (4-bit Affine) - With AI Director (1024x1024)](benchmark_images/qwen21_base_4bit_with_director_1024.png)
+![Qwen-Image 2.1 Base (4-bit Affine) - With AI Director (1024x1024)](images/qwen21_base_4bit_with_director_1024.png)
 
 #### Without AI Director (512x512)
 - **Generation Time:** `107.03s` (Step Rate: `2.676s/step`)
 - **Peak Unified Memory:** `9.43 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Qwen-Image 2.1 Base (4-bit Affine) - Without AI Director (512x512)](benchmark_images/qwen21_base_4bit_without_director_512.png)
+![Qwen-Image 2.1 Base (4-bit Affine) - Without AI Director (512x512)](images/qwen21_base_4bit_without_director_512.png)
 
 #### Without AI Director (1024x1024)
 - **Generation Time:** `455.90s` (Step Rate: `11.398s/step`)
 - **Peak Unified Memory:** `9.43 GB`
 - **Prompt:** *Raw Direct Prompt*
 
-![Qwen-Image 2.1 Base (4-bit Affine) - Without AI Director (1024x1024)](benchmark_images/qwen21_base_4bit_without_director_1024.png)
+![Qwen-Image 2.1 Base (4-bit Affine) - Without AI Director (1024x1024)](images/qwen21_base_4bit_without_director_1024.png)
 
 ---
 
 ## Phase 2: Instruction-Based Image Editing Benchmark (`1024x1024`)
 
-To evaluate instruction-guided image modification (`POST /v1/images/edits`), we took the `1024x1024` reference image ([`qwen21_turbo_4bit_with_director_1024.png`](benchmark_images/qwen21_turbo_4bit_with_director_1024.png)) and applied the exact same multi-part modification instruction across all three edit-capable models with fixed seed `42`:
+To evaluate instruction-guided image modification (`POST /v1/images/edits`), we took the `1024x1024` reference image ([`qwen21_turbo_4bit_with_director_1024.png`](images/qwen21_turbo_4bit_with_director_1024.png)) and applied the exact same multi-part modification instruction across all three edit-capable models with fixed seed `42`:
 
 - **Edit Instruction:**
   > *"Change the stadium weather to heavy falling snow, add frost on the grass, and make the football a bright orange winter ball"*
@@ -269,18 +269,18 @@ To evaluate instruction-guided image modification (`POST /v1/images/edits`), we 
 
 | Model | Checkpoint ID | Steps | Edit Time | Step Time | Peak RAM / VRAM | Pose & Identity Preservation | Environmental Transformation | Generated Output |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Qwen-Image 2.1 Turbo (4-bit)** | `OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit` | `8` | **123.02s** | `15.38s` | **10.26 GB** | **Near-Exact** (strict pixel/pose lock) | Moderate (bright orange ball + frosted turf; conservative sky change) | [`edit_bench_qwen21_turbo_1024.png`](benchmark_images/edit_bench_qwen21_turbo_1024.png) |
-| **FLUX.2 Klein 9B (4-bit)** | `mlx-community/flux2-klein-9b-4bit` | `4` | **219.81s** | `54.95s` | **9.56 GB** | **High** (preserves exact pose, face, and kit) | **Exceptional** (full blizzard, snow accumulation on hair/arms/turf, glowing orange winter ball) | [`edit_bench_flux2_klein_9b_1024.png`](benchmark_images/edit_bench_flux2_klein_9b_1024.png) |
-| **Qwen-Image 2.1 Base (4-bit)** | `mlx-community/Qwen-Image-2.1-MLX-4bit` | `40` | **524.75s** | `13.12s` | **10.26 GB** | **Near-Exact** (strict pixel/pose lock) | Moderate-High (orange ball, frosted turf, denser snowfall in sky) | [`edit_bench_qwen21_base_1024.png`](benchmark_images/edit_bench_qwen21_base_1024.png) |
+| **Qwen-Image 2.1 Turbo (4-bit)** | `OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit` | `8` | **123.02s** | `15.38s` | **10.26 GB** | **Near-Exact** (strict pixel/pose lock) | Moderate (bright orange ball + frosted turf; conservative sky change) | [`edit_bench_qwen21_turbo_1024.png`](images/edit_bench_qwen21_turbo_1024.png) |
+| **FLUX.2 Klein 9B (4-bit)** | `mlx-community/flux2-klein-9b-4bit` | `4` | **219.81s** | `54.95s` | **9.56 GB** | **High** (preserves exact pose, face, and kit) | **Exceptional** (full blizzard, snow accumulation on hair/arms/turf, glowing orange winter ball) | [`edit_bench_flux2_klein_9b_1024.png`](images/edit_bench_flux2_klein_9b_1024.png) |
+| **Qwen-Image 2.1 Base (4-bit)** | `mlx-community/Qwen-Image-2.1-MLX-4bit` | `40` | **524.75s** | `13.12s` | **10.26 GB** | **Near-Exact** (strict pixel/pose lock) | Moderate-High (orange ball, frosted turf, denser snowfall in sky) | [`edit_bench_qwen21_base_1024.png`](images/edit_bench_qwen21_base_1024.png) |
 
 #### 1. FLUX.2 Klein 9B (4-bit) — 4 Steps (`219.81s`, `9.56 GB` VRAM)
-![FLUX.2 Klein 9B Edit Output](benchmark_images/edit_bench_flux2_klein_9b_1024.png)
+![FLUX.2 Klein 9B Edit Output](images/edit_bench_flux2_klein_9b_1024.png)
 
 #### 2. Qwen-Image 2.1 Turbo (4-bit) — 8 Steps (`123.02s`, `10.26 GB` VRAM)
-![Qwen-Image 2.1 Turbo Edit Output](benchmark_images/edit_bench_qwen21_turbo_1024.png)
+![Qwen-Image 2.1 Turbo Edit Output](images/edit_bench_qwen21_turbo_1024.png)
 
 #### 3. Qwen-Image 2.1 Base (4-bit) — 40 Steps (`524.75s`, `10.26 GB` VRAM)
-![Qwen-Image 2.1 Base Edit Output](benchmark_images/edit_bench_qwen21_base_1024.png)
+![Qwen-Image 2.1 Base Edit Output](images/edit_bench_qwen21_base_1024.png)
 
 ---
 
