@@ -1,6 +1,6 @@
 [project]
 name = "tpm-mlx"
-version = "0.4.0"
+version = "0.5.0"
 description = "Zero-bloat, highly optimized Apple Silicon local inference engine featuring pre-allocated KV caches, zero-sync Metal pipelines, OpenAI API compliance, and a premium Web Playground."
 readme = "README.md"
 requires-python = ">=3.12"

@@ -4,6 +4,32 @@ All notable changes to **TPM-MLX** are documented in this file.
 
 ---
 
+## [0.5.0] - 2026-10-13
+
+### 🎨 Qwen-Image 2.1 (Turbo 8-Step & Base 40-Step) Integration
+- **Native Qwen-Image 2.1 Support (`MLXImageEngine`):** Integrated both `OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit` (custom 8-step `qwen_turbo` non-uniform sigma scheduler with `use_terminal=False`) and `mlx-community/Qwen-Image-2.1-MLX-4bit` (40-step linear flow-matching pipeline).
+- **Transparent `format: mlx` Safetensors Weight Adapter:** Added automatic in-memory key remapping, modulation/timestep dequantization, and 3D patch projection transposition so `mlx-community` Qwen-Image-2.1 checkpoints load natively into `QwenImage21Edit`.
+- **Unified Text-to-Image & Instruction Editing Pipeline:** Powered by Qwen3-VL 8B multimodal conditioning with prefix KV caching (`use_kv_cache=True`), running in **9.43 GB** unified memory for generation and **10.26 GB** for `1024×1024` instruction editing (`4.7×` speedup with Turbo).
+- **Interactive Denoising Steps Slider & Local Cache Filtering:** Added a dynamic steps slider in the Web Playground (auto-defaulting to `8` for Qwen Turbo, `40` for Qwen Base, and `4` for FLUX/Z-Image/Bonsai) and ensured `/v1/models` exclusively lists locally downloaded checkpoints.
+
+### 🧬 OpenAI-Compatible `/v1/embeddings` Endpoint (EmbeddingGemma 2)
+- **Sovereign Embedding Engine (`MLXEmbeddingEngine`):** Added `POST /v1/embeddings` powered by `mlx-community/embeddinggemma-2-4bit` (4-bit Gemma 4 architecture) with Matryoshka Representation Learning (MRL) dimension truncation (`dimensions`) and unit L2 re-normalization.
+
+### ♻️ Mutual Unified Memory Eviction & Live Active Memory Telemetry
+- **Automatic Cross-Engine Eviction:** Switching between LLM/VLM text models and Diffusion image models automatically evicts the inactive engine (`unload_text_engine()`, `unload_image_engine()`, `unload_embedding_engine()`) and flushes Metal GPU caches (`mx.clear_cache()`, `mx.reset_peak_memory()`).
+- **Real-Time Active Memory Reporting:** Added `get_active_memory_gb()` (`mx.get_active_memory()`) across `/v1/models` and Playground metric badges to reflect live allocated unified memory.
+
+### ⚡ Dynamic MTP Auto-Pairing, Gemma 4 QAT Fix & VLM Local Path Resolution
+- **Dynamic MTP Companion Auto-Pairing:** Automatically discovers and pairs matching MTP heads and assistant drafters for Qwen 3.x and Gemma 4 models, with cross-family mismatch guards and resilient background model loading.
+- **Gemma 4 QAT Assistant Dequantization Fix:** Resolved quantized weight loading for official Gemma 4 QAT assistant drafters.
+- **VLM Local Disk Image Resolution:** Resolves `/images/` and `/images/uploads/` references directly from disk during multimodal `/v1/chat/completions` requests to prevent loopback HTTP deadlocks, while preserving `tool_calls` and `tool_call_id` metadata.
+
+### 🏗️ Clean Modular Architecture & Unified Benchmark Suite
+- **Layered Backend & Modular ES Frontend:** Decoupled FastAPI server into `routes/`, `schemas/`, `state.py`, `director.py`, and `cache.py`, and split the Web Playground into modular ES modules and CSS with persistent multi-session chat history and responsive mobile navigation.
+- **Consolidated Benchmark Hub (`benchmarks/`):** Organized all benchmarks into [`benchmarks/text/`](benchmarks/text/README.md) (13-model LLM/MTP matrix) and [`benchmarks/image/`](benchmarks/image/README.md) (24-run, 6-model text-to-image matrix + 3-model `1024×1024` instruction editing showdown), backed by **34/34 passing unit and architecture tests**.
+
+---
+
 ## [0.4.0] - 2026-09-18
 
 ### 🌲 Native Support for Ternary Bonsai 2 27B (`prism-ml/Ternary-Bonsai-2-27B-mlx-2bit`)
@@ -62,7 +88,7 @@ All notable changes to **TPM-MLX** are documented in this file.
 - **Backend & Telemetry Reporting:** Added `backend: "llm" | "vlm"`, `speculation_mode: "mtp" | "draft" | "none"`, and `has_mtp: true | false` to `/v1/models` and `/v1/load_model`.
 
 ### 📊 Full 13-Model Hardware Benchmark Matrix
-- Added automated reproducibility script `benchmarks/run_full_matrix.py` and published comprehensive Apple Silicon benchmark report in [`BENCHMARKS.md`](BENCHMARKS.md) across 13 model configurations.
+- Added automated reproducibility script `benchmarks/text/run_full_matrix.py` and published comprehensive Apple Silicon benchmark report in [`benchmarks/text/README.md`](benchmarks/text/README.md) across 13 model configurations.
 - 100% test pass rate across all unit tests in `benchmarks/test_engine.py` and `benchmarks/test_mtp.py`.
 
 ---
