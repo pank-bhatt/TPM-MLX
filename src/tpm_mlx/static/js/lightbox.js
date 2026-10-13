@@ -99,7 +99,7 @@ export function copyImageLink(btn, relUrl) {
  * Displays notice when attempting image-to-image on an unsupported model.
  */
 export function handleUnsupportedModify() {
-    alert("Image modification (Image-to-Image editing) requires a FLUX model (such as mlx-community/flux2-klein-9b-4bit). Please load FLUX.2 Klein from the sidebar to edit images.");
+    alert("Image modification (Image-to-Image editing) requires Qwen-Image-2.1 (e.g. OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit) or FLUX.2 Klein (e.g. mlx-community/flux2-klein-9b-4bit). Please load one from the sidebar to edit images.");
 }
 
 /**

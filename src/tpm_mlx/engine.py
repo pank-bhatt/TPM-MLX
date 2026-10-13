@@ -17,6 +17,7 @@ from mlx_lm.generate import stream_generate, GenerationResponse
 
 
 from tpm_mlx.cache import PreAllocatedKVCache
+from tpm_mlx.utils import get_active_memory_gb
 
 
 def _patch_gemma4_assistant_quantized_embeddings():
@@ -402,7 +403,7 @@ class MLXEngine:
                     prompt_tps=prompt_tps,
                     generation_tokens=n + 1,
                     generation_tps=(n + 1) / max(time.perf_counter() - tic, 1e-6),
-                    peak_memory=mx.get_peak_memory() / 1e9,
+                    peak_memory=get_active_memory_gb(),
                     finish_reason=None,
                 )
 
@@ -416,7 +417,7 @@ class MLXEngine:
                 prompt_tps=prompt_tps,
                 generation_tokens=n + 1,
                 generation_tps=(n + 1) / max(time.perf_counter() - tic, 1e-6),
-                peak_memory=mx.get_peak_memory() / 1e9,
+                peak_memory=get_active_memory_gb(),
                 finish_reason="stop" if token in tokenizer.eos_token_ids else "length",
             )
 
@@ -433,7 +434,7 @@ class MLXEngine:
         
         # Apply model chat template if string prompt and not already templated
         formatted_prompt = prompt
-        if isinstance(prompt, str) and any(tag in prompt for tag in ("<|im_start|>", "<|start_header_id|>", "<start_of_turn>")):
+        if isinstance(prompt, str) and any(tag in prompt for tag in ("<|im_start|>", "<|start_header_id|>", "<start_of_turn>", "<|turn>", "<bos>", "<|tool>", "<|image|>", "<|channel>")):
             formatted_prompt = prompt
         elif hasattr(self, "processor") and hasattr(self.processor, "apply_chat_template"):
             try:
@@ -488,7 +489,7 @@ class MLXEngine:
                 prompt_tps=prompt_tps,
                 generation_tokens=getattr(resp, "generation_tokens", n + 1),
                 generation_tps=gen_tps,
-                peak_memory=getattr(resp, "peak_memory", mx.get_peak_memory() / 1e9),
+                peak_memory=get_active_memory_gb(),
                 finish_reason=getattr(resp, "finish_reason", None),
             )
 
@@ -504,6 +505,11 @@ class MLXEngine:
         A streaming generator wrapping speculative / standard generation with PreAllocatedKVCache
         and reasoning filtering.
         """
+        try:
+            mx.reset_peak_memory()
+        except Exception:
+            pass
+
         # If VLM or Bonsai 2 backend is active, route through mlx-vlm stream generator
         if self.backend in ("vlm", "bonsai2"):
             raw_stream = self._stream_vlm_generate(
@@ -572,7 +578,13 @@ class MLXEngine:
         inside_think = False
         buffer = ""
         
-        start_tags = ["<think>", "<|channel>thought"]
+        REASONING_PAIRS = {
+            "<think>": "</think>",
+            "<|channel>thought": "<channel|>",
+            "<unused94>thought": "<unused95>",
+            "<unused94>": "<unused95>",
+        }
+        start_tags = list(REASONING_PAIRS.keys())
         active_end_tag = None
         
         for response in raw_stream:
@@ -601,7 +613,7 @@ class MLXEngine:
                         # Strip original start tag and transition
                         buffer = buffer[found_idx + len(found_tag):]
                         inside_think = True
-                        active_end_tag = "</think>" if found_tag == "<think>" else "<channel|>"
+                        active_end_tag = REASONING_PAIRS[found_tag]
                     else:
                         # Check if buffer ends with a partial start tag
                         keep_len = 0
@@ -650,11 +662,13 @@ class MLXEngine:
             if yield_text:
                 resp_copy = copy.copy(response)
                 resp_copy.text = yield_text
+                resp_copy.peak_memory = get_active_memory_gb()
                 yield resp_copy
             elif response.finish_reason is not None:
                 # Always yield final response to communicate finish_reason and final stats
                 resp_copy = copy.copy(response)
                 resp_copy.text = ""
+                resp_copy.peak_memory = get_active_memory_gb()
                 yield resp_copy
 
     def _filter_reasoning(
@@ -669,7 +683,13 @@ class MLXEngine:
         inside_think = False
         buffer = ""
         
-        start_tags = ["<think>", "<|channel>thought"]
+        REASONING_PAIRS = {
+            "<think>": "</think>",
+            "<|channel>thought": "<channel|>",
+            "<unused94>thought": "<unused95>",
+            "<unused94>": "<unused95>",
+        }
+        start_tags = list(REASONING_PAIRS.keys())
         active_end_tag = None
         
         for response in raw_stream:
@@ -696,7 +716,7 @@ class MLXEngine:
                         # Strip start tag and transition
                         buffer = buffer[found_idx + len(found_tag):]
                         inside_think = True
-                        active_end_tag = "</think>" if found_tag == "<think>" else "<channel|>"
+                        active_end_tag = REASONING_PAIRS[found_tag]
                     else:
                         # Check if buffer ends with a partial start tag
                         keep_len = 0
@@ -740,9 +760,11 @@ class MLXEngine:
             if yield_text:
                 resp_copy = copy.copy(response)
                 resp_copy.text = yield_text
+                resp_copy.peak_memory = get_active_memory_gb()
                 yield resp_copy
             elif response.finish_reason is not None:
                 # Always yield final response to communicate finish_reason and final stats
                 resp_copy = copy.copy(response)
                 resp_copy.text = ""
+                resp_copy.peak_memory = get_active_memory_gb()
                 yield resp_copy

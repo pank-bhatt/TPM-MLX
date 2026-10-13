@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#07080b">
     <title>TPM-MLX High-Throughput Inference Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=0.2.3">
+    <link rel="stylesheet" href="/static/css/style.css?v=0.2.4">
 </head>
 <body>
 
@@ -154,6 +154,14 @@
             </select>
         </div>
 
+        <div class="control-group" id="image-steps-container" style="display: none; margin-top: 12px;">
+            <div class="range-value">
+                <label for="image-steps-slider">Denoising Steps</label>
+                <span id="image-steps-val">4</span>
+            </div>
+            <input type="range" id="image-steps-slider" min="1" max="50" step="1" value="4">
+        </div>
+
         <div class="control-group" id="image-director-container" style="display: none; margin-top: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <label for="auto-expand-toggle" style="margin-bottom: 0; cursor: pointer; font-weight: 500;">
@@ -283,6 +291,6 @@
     </div>
 
     <!-- Main Module Script -->
-    <script type="module" src="/static/js/app.js?v=0.2.3"></script>
+    <script type="module" src="/static/js/app.js?v=0.2.5"></script>
 </body>
 </html>

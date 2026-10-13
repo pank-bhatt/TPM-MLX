@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from tpm_mlx import state
 from tpm_mlx.schemas.chat import ChatCompletionRequest
 from tpm_mlx.vlm import extract_text_and_images
-from tpm_mlx.utils import apply_chat_template_fallback
+from tpm_mlx.utils import apply_chat_template_fallback, get_active_memory_gb
 
 logger = logging.getLogger("tpm-mlx.routes.chat")
 router = APIRouter(prefix="/v1", tags=["chat"])
@@ -64,11 +64,28 @@ async def chat_completions(req: ChatCompletionRequest):
 
     # Standard OpenAI Chat template format mapping with multimodal image extraction
     formatted_messages, images = extract_text_and_images(req.messages)
+    last_msg = formatted_messages[-1].get("content", "") if formatted_messages else ""
+    logger.info(f"Chat completion request: model={req.model}, msgs_count={len(formatted_messages)}, images_count={len(images)}, last_msg={last_msg[:120]!r}")
 
     try:
         if hasattr(current_engine, "processor") and hasattr(current_engine.processor, "apply_chat_template"):
             from mlx_vlm.prompt_utils import apply_chat_template
-            prompt = apply_chat_template(current_engine.processor, current_engine.model.config, formatted_messages)
+            cfg = getattr(current_engine.model, "config", getattr(current_engine, "config", None))
+            if getattr(current_engine, "backend", "") == "bonsai2" or (isinstance(cfg, dict) and cfg.get("model_type") == "prism_hadamard_qwen35") or getattr(cfg, "model_type", None) == "prism_hadamard_qwen35":
+                from tpm_mlx.bonsai2 import chat_config
+                cfg = chat_config(current_engine.config if isinstance(current_engine.config, dict) else cfg)
+            kwargs = {}
+            if req.tools:
+                kwargs["tools"] = req.tools
+            prompt = apply_chat_template(
+                current_engine.processor,
+                cfg,
+                formatted_messages,
+                num_images=len(images) if images else 0,
+                **kwargs
+            )
+            if prompt.endswith("<tool_response|>"):
+                prompt += "<|turn>model\n"
         else:
             kwargs = {
                 "tokenize": False,
@@ -80,6 +97,8 @@ async def chat_completions(req: ChatCompletionRequest):
                 formatted_messages,
                 **kwargs
             )
+            if prompt.endswith("<tool_response|>"):
+                prompt += "<|turn>model\n"
     except Exception as e:
         prompt = apply_chat_template_fallback(formatted_messages, current_engine.tokenizer)
         logger.warning(f"Could not apply tokenizer template ({e}), using fallback formatting.")
@@ -152,7 +171,8 @@ async def chat_completions(req: ChatCompletionRequest):
                                     "tps": round(generation_tps, 2),
                                     "ttft_ms": round(ttft, 2),
                                     "prompt_tps": round(prompt_tps, 2),
-                                    "peak_memory_gb": round(peak_mem, 2),
+                                    "peak_memory_gb": round(peak_mem if peak_mem > 0 else get_active_memory_gb(), 2),
+                                    "active_memory_gb": round(get_active_memory_gb(), 2),
                                     "prompt_tokens": prompt_tokens_count,
                                     "generation_tokens": completion_tokens_count,
                                     "speculation_mode": current_engine.speculation_mode if current_engine else "none",
@@ -268,7 +288,8 @@ async def chat_completions(req: ChatCompletionRequest):
                 "tps": round(last_resp.generation_tps, 2),
                 "ttft_ms": round(ttft_ms, 2),
                 "prompt_tps": round(last_resp.prompt_tps, 2),
-                "peak_memory_gb": round(last_resp.peak_memory, 2),
+                "peak_memory_gb": round(last_resp.peak_memory if last_resp.peak_memory > 0 else get_active_memory_gb(), 2),
+                "active_memory_gb": round(get_active_memory_gb(), 2),
                 "speculation_mode": current_engine.speculation_mode,
                 "acceptance_rate": round(current_engine.speculation_stats.acceptance_rate, 4),
                 "draft_tokens_total": current_engine.speculation_stats.draft_tokens_total,

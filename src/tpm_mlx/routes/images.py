@@ -32,9 +32,6 @@ async def generate_images_endpoint(req: ImageGenerationApiRequest):
     Supports resolution, steps, seed, response_format (url / b64_json),
     and intelligent context distillation via the active text LLM engine.
     """
-    import tpm_mlx.server
-    img_eng = await tpm_mlx.server._get_or_load_image_engine(req.model)
-
     effective_prompt = req.prompt
     revised_prompt: Optional[str] = None
 
@@ -51,6 +48,9 @@ async def generate_images_endpoint(req: ImageGenerationApiRequest):
             effective_prompt = revised
             revised_prompt = revised
             logger.info(f"Distilled visual prompt: '{effective_prompt[:70]}...'")
+
+    import tpm_mlx.server
+    img_eng = await tpm_mlx.server._get_or_load_image_engine(req.model)
 
     from tpm_mlx.image_engine import MLXImageEngine
     detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)
@@ -133,15 +133,6 @@ async def edit_images_endpoint(req: ImageEditApiRequest):
     OpenAI-compatible image editing endpoint.
     Modifies an input reference image according to a natural language prompt.
     """
-    import tpm_mlx.server
-    img_eng = await tpm_mlx.server._get_or_load_image_engine(req.model)
-
-    if not img_eng.supports_editing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Model '{img_eng.model_id}' does not support instruction-based image editing. Please select 'mlx-community/FLUX.2-klein-9B'."
-        )
-
     effective_prompt = req.prompt
     revised_prompt: Optional[str] = None
 
@@ -158,6 +149,15 @@ async def edit_images_endpoint(req: ImageEditApiRequest):
             effective_prompt = revised
             revised_prompt = revised
             logger.info(f"Distilled visual edit prompt: '{effective_prompt[:70]}...'")
+
+    import tpm_mlx.server
+    img_eng = await tpm_mlx.server._get_or_load_image_engine(req.model)
+
+    if not img_eng.supports_editing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{img_eng.model_id}' does not support instruction-based image editing. Please select 'OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit' or 'mlx-community/FLUX.2-klein-9B'."
+        )
 
     from tpm_mlx.image_engine import MLXImageEngine
     detected_size = MLXImageEngine.extract_resolution_from_text(req.prompt)

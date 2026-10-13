@@ -15,10 +15,19 @@ import mlx.core as mx
 
 from tpm_mlx import state
 from tpm_mlx.schemas.models import LoadModelRequest, LoadImageModelRequest
-from tpm_mlx.utils import get_cached_models
+from tpm_mlx.utils import get_cached_models, get_active_memory_gb
 
 logger = logging.getLogger("tpm-mlx.routes.models")
 router = APIRouter(prefix="/v1", tags=["models"])
+
+KNOWN_IMAGE_MODELS = [
+    "OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit",
+    "mlx-community/Qwen-Image-2.1-MLX-4bit",
+    "mlx-community/FLUX.2-klein-4B",
+    "mlx-community/flux2-klein-9b-4bit",
+    "justintime47/Z-Image-Turbo-MLX-Serve-8bit",
+    "mlx-community/bonsai-image-ternary-4B-mlx-2bit",
+]
 
 
 @router.get("/models")
@@ -51,6 +60,23 @@ async def list_models():
             "status": "ready",
         })
 
+    # Active embedding model if loaded
+    if getattr(state, "embedding_engine", None) is not None and getattr(state, "loaded_embedding_model_id", None):
+        seen_ids.add(state.loaded_embedding_model_id)
+        data.append({
+            "id": state.loaded_embedding_model_id,
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "tpm-mlx",
+            "active": True,
+            "active_type": "embedding",
+            "is_draft": False,
+            "is_image": False,
+            "is_embedding": True,
+            "backend": "embeddinggemma2",
+            "status": "ready",
+        })
+
     # If a model is currently in-flight loading
     if state.is_loading and state.loading_model_id and state.loading_model_id not in seen_ids:
         seen_ids.add(state.loading_model_id)
@@ -79,19 +105,22 @@ async def list_models():
         is_active_draft = bool(not is_curr_img and state.loaded_draft_model_id and repo_id == state.loaded_draft_model_id)
         # An image model in cache is ONLY active if it is the currently loaded base model
         is_active_image = bool(is_curr_img and state.loaded_model_id and repo_id == state.loaded_model_id)
+        is_embedding = item.get("is_embedding", False)
+        is_active_emb = bool(getattr(state, "embedding_engine", None) is not None and repo_id == getattr(state, "loaded_embedding_model_id", None))
 
         data.append({
             "id": repo_id,
             "object": "model",
             "created": int(item["last_modified"]),
             "owned_by": "huggingface",
-            "active": is_active_image or is_active_draft,
-            "active_type": "image" if is_active_image else ("draft" if is_active_draft else None),
+            "active": is_active_image or is_active_draft or is_active_emb,
+            "active_type": "embedding" if is_active_emb else ("image" if is_active_image else ("draft" if is_active_draft else None)),
             "is_draft": item.get("is_draft", False),
             "is_image": item.get("is_image", False),
+            "is_embedding": is_embedding,
             "size_bytes": item.get("size_on_disk", 0),
             "arch": item.get("arch", ""),
-            "status": "ready" if (is_active_image or is_active_draft) else "cached",
+            "status": "ready" if (is_active_image or is_active_draft or is_active_emb) else "cached",
         })
 
     loading_elapsed = round(time.time() - state.loading_start_time, 1) if (state.is_loading and state.loading_start_time) else None
@@ -102,6 +131,7 @@ async def list_models():
         "active_model": state.loaded_model_id,
         "active_draft_model": None if is_curr_img else state.loaded_draft_model_id,
         "active_image_model": state.loaded_model_id if is_curr_img else state.loaded_image_model_id,
+        "active_embedding_model": getattr(state, "loaded_embedding_model_id", None),
         "speculation_mode": "none" if is_curr_img else (getattr(state.engine, "speculation_mode", "none") if state.engine else "none"),
         "has_mtp": False if is_curr_img else (getattr(state.engine, "has_mtp", False) if state.engine else False),
         "num_draft_tokens": 0 if is_curr_img else (getattr(state.engine, "num_draft_tokens", 0) if state.engine else 0),
@@ -110,6 +140,7 @@ async def list_models():
         "loading_model": state.loading_model_id if state.is_loading else None,
         "loading_elapsed_s": loading_elapsed,
         "status": "loading" if state.is_loading else ("ready" if (state.engine or (is_curr_img and state.image_engine)) else "idle"),
+        "active_memory_gb": round(get_active_memory_gb(), 2),
     }
 
 
@@ -122,23 +153,11 @@ async def load_model_endpoint(req: LoadModelRequest):
     Shields background load tasks against client disconnection timeouts.
     """
     if req.model.strip().lower() in ("none", "null", "unload"):
-        old_engine = state.engine
-        state.engine = None
-        state.loaded_model_id = None
-        state.loaded_draft_model_id = None
-        if old_engine is not None:
-            try:
-                del old_engine.model
-                del old_engine.processor
-                del old_engine.drafter
-            except Exception:
-                pass
-            del old_engine
-        gc.collect()
-        mx.clear_cache()
+        state.unload_text_engine()
+        state.unload_image_engine()
         return {
             "status": "success",
-            "message": "Unloaded text engine from Unified Memory",
+            "message": "Unloaded all engines from Unified Memory",
             "model": None,
             "draft_model": None,
             "backend": "none",
@@ -147,6 +166,7 @@ async def load_model_endpoint(req: LoadModelRequest):
             "num_draft_tokens": 0,
             "is_image": False,
             "is_loading": False,
+            "active_memory_gb": round(get_active_memory_gb(), 2),
         }
 
     if state.is_image_repo(req.model):

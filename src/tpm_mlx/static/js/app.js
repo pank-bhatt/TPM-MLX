@@ -159,6 +159,8 @@ export function isImageModelName(name) {
     return lower.includes("flux") || 
            lower.includes("diffusion") || 
            (lower.includes("bonsai") && lower.includes("image")) || 
+           (lower.includes("qwen") && lower.includes("image")) ||
+           lower.includes("studio-image") ||
            lower.includes("klein") ||
            lower.includes("sdxl") ||
            lower.includes("stable-diffusion") ||
@@ -300,6 +302,9 @@ export function handleModelSelectionChange() {
     const draftContainer = draftSelect.closest(".control-group");
     const paramsTitle = document.getElementById("parameters-section-title");
     const resContainer = document.getElementById("image-resolution-container");
+    const stepsContainer = document.getElementById("image-steps-container");
+    const stepsSlider = document.getElementById("image-steps-slider");
+    const stepsVal = document.getElementById("image-steps-val");
     const dirContainer = document.getElementById("image-director-container");
     const reasoningParent = reasoningContainer ? reasoningContainer.closest(".control-group") : null;
 
@@ -324,7 +329,19 @@ export function handleModelSelectionChange() {
 
         if (noticeEl) noticeEl.style.display = "block";
         if (resContainer) resContainer.style.display = "flex";
+        if (stepsContainer) stepsContainer.style.display = "flex";
         if (dirContainer) dirContainer.style.display = "block";
+
+        // Auto-adjust default step count based on model family (8 for Qwen Turbo, 40 for Qwen Base, 4 for FLUX/Z-Image)
+        if (stepsSlider && stepsVal) {
+            const lowerSel = (selectedVal || "").toLowerCase();
+            let recSteps = 4;
+            if ((lowerSel.includes("qwen") && lowerSel.includes("image")) || lowerSel.includes("studio-image")) {
+                recSteps = lowerSel.includes("turbo") ? 8 : 40;
+            }
+            stepsSlider.value = String(recSteps);
+            stepsVal.textContent = String(recSteps);
+        }
     } else {
         // Restore MTP & LLM controls
         if (draftContainer) {
@@ -380,6 +397,7 @@ export function handleModelSelectionChange() {
 
         if (noticeEl) noticeEl.style.display = "none";
         if (resContainer) resContainer.style.display = "none";
+        if (stepsContainer) stepsContainer.style.display = "none";
         if (dirContainer) dirContainer.style.display = "none";
         autoSelectMatchingDraft(selectedVal);
     }
@@ -434,10 +452,10 @@ export function updateReasoningBadge() {
  */
 export function attachReferenceImage(url, displayName = "Reference Image") {
     const modelLower = (activeModel || "").toLowerCase();
-    const isFlux = modelLower.includes("flux");
-    const isVlm = modelLower.includes("gemma") || modelLower.includes("qwen") || modelLower.includes("vl");
+    const isEditImageModel = modelLower.includes("flux") || (modelLower.includes("qwen") && modelLower.includes("image")) || modelLower.includes("studio-image");
+    const isVlm = !isImageModelName(activeModel) && (modelLower.includes("gemma") || modelLower.includes("qwen") || modelLower.includes("vl"));
 
-    if (!isFlux && !isVlm) {
+    if (!isEditImageModel && !isVlm) {
         handleUnsupportedModify();
         return;
     }
@@ -446,8 +464,8 @@ export function attachReferenceImage(url, displayName = "Reference Image") {
     attachedImageThumb.src = url;
     attachedImageName.textContent = displayName;
     attachedImageContainer.style.display = "inline-flex";
-    userInput.placeholder = isFlux 
-        ? "Describe changes to make to this image with FLUX.2 (e.g. change lighting, add object)..."
+    userInput.placeholder = isEditImageModel 
+        ? "Describe changes to make to this image (e.g. change lighting, add object)..."
         : "Ask a question about this image with the VLM...";
     userInput.focus();
 }
@@ -491,8 +509,8 @@ export function buildImageCardHtml(item) {
                         ✏️ Modify Image
                     </button>
                 ` : `
-                    <button type="button" class="img-action-btn" style="opacity: 0.55;" title="Image-to-Image editing is supported by FLUX.2 Klein models" onclick="handleUnsupportedModify()">
-                        ✏️ Modify (FLUX only)
+                    <button type="button" class="img-action-btn" style="opacity: 0.55;" title="Image-to-Image editing is supported by Qwen-Image-2.1 and FLUX.2 Klein models" onclick="handleUnsupportedModify()">
+                        ✏️ Modify (Qwen / FLUX only)
                     </button>
                 `}
                 <button type="button" class="img-action-btn" onclick="copyImageLink(this, '${item.url}')">
@@ -532,11 +550,11 @@ export function buildImageMetricsHtml(metrics = {}, modelDisplayName = "") {
             <span>Size:</span>
             <span class="metric-val">${metrics.width}x${metrics.height}</span>
         </div>` : ''}
-        ${metrics.peak_memory_gb ? `
-        <div class="metric" data-tooltip="Peak Unified Memory during this generation run on Apple Silicon">
+        ${(metrics.active_memory_gb !== undefined || metrics.peak_memory_gb !== undefined) ? `
+        <div class="metric" data-tooltip="Active Unified Memory currently allocated by MLX model weights and generation buffers">
             <span class="metric-icon">💾</span>
             <span>Memory:</span>
-            <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+            <span class="metric-val">${metrics.active_memory_gb || metrics.peak_memory_gb} GB</span>
         </div>` : ''}
     `;
 }
@@ -586,11 +604,11 @@ export function buildChatMetricsHtml(metrics = {}, usage = {}) {
             <span class="metric-val">${genTokens} tokens</span>
         </div>` : ''}
         ${specBadge}
-        ${metrics.peak_memory_gb ? `
-        <div class="metric" data-tooltip="Peak Unified Memory (RAM+VRAM) on Apple Silicon">
+        ${(metrics.active_memory_gb !== undefined || metrics.peak_memory_gb !== undefined) ? `
+        <div class="metric" data-tooltip="Active Unified Memory currently allocated by MLX model weights & KV cache">
             <span class="metric-icon">💾</span>
             <span>Memory:</span>
-            <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+            <span class="metric-val">${metrics.active_memory_gb || metrics.peak_memory_gb} GB</span>
         </div>` : ''}
     `;
 }
@@ -1023,7 +1041,7 @@ export async function sendMessage() {
         if (!imagePrompt) imagePrompt = isEdit ? "Refine and enhance image details and lighting" : "A beautiful scenic view on Apple Silicon";
 
         loaderDiv.innerHTML = isEdit 
-            ? `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">✏️ <span>Modifying image with FLUX Apple Silicon MLX...</span></span>`
+            ? `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">✏️ <span>Modifying image with Apple Silicon MLX...</span></span>`
             : `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">🎨 <span>Generating image with Apple Silicon MLX...</span></span>`;
 
         try {
@@ -1038,10 +1056,18 @@ export async function sendMessage() {
 
             const isAutoExpand = autoExpandToggle ? autoExpandToggle.checked : false;
             const activeImg = (isImageModelName(activeModel) ? activeModel : null) || activeImageModel;
+            const stepsSliderEl = document.getElementById("image-steps-slider");
+            let selectedSteps = stepsSliderEl ? parseInt(stepsSliderEl.value) : 4;
+            if (!stepsSliderEl && activeImg) {
+                const lowerImg = activeImg.toLowerCase();
+                if ((lowerImg.includes("qwen") && lowerImg.includes("image")) || lowerImg.includes("studio-image")) {
+                    selectedSteps = lowerImg.includes("turbo") ? 8 : 40;
+                }
+            }
             const imgPayload = {
                 prompt: imagePrompt,
                 size: finalResolution,
-                steps: 4,
+                steps: selectedSteps || 4,
                 auto_expand: isAutoExpand,
                 context: isAutoExpand ? recentContext : null,
                 response_format: "url"
@@ -1056,9 +1082,10 @@ export async function sendMessage() {
             const item = imgData.data[0];
             const metrics = imgData.tpm_metrics || {};
 
+            const checkModel = (metrics.model || activeModel || "").toLowerCase();
             const supportsEdit = metrics.supports_editing !== undefined 
                 ? metrics.supports_editing 
-                : (metrics.model ? metrics.model.toLowerCase().includes("flux") : (activeModel || "").toLowerCase().includes("flux"));
+                : (checkModel.includes("flux") || (checkModel.includes("qwen") && checkModel.includes("image")) || checkModel.includes("studio-image"));
             const modelDisplayName = (metrics.model || activeModel || "").split("/").pop();
 
             contentDiv.innerHTML = buildImageCardHtml({
@@ -1241,6 +1268,14 @@ function initEventListeners() {
     tempSlider.addEventListener("input", (e) => {
         tempVal.textContent = parseFloat(e.target.value).toFixed(1);
     });
+
+    const imageStepsSlider = document.getElementById("image-steps-slider");
+    const imageStepsVal = document.getElementById("image-steps-val");
+    if (imageStepsSlider && imageStepsVal) {
+        imageStepsSlider.addEventListener("input", (e) => {
+            imageStepsVal.textContent = e.target.value;
+        });
+    }
 
     if (autoExpandToggle && directorDesc) {
         autoExpandToggle.addEventListener("change", () => {

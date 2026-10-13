@@ -65,6 +65,19 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"tpm-mlx.{name}")
 
 
+def get_active_memory_gb() -> float:
+    """
+    Returns the current active Unified Memory allocated by MLX in gigabytes.
+    Unlike get_peak_memory(), this reflects actual live tensors (model weights + KV cache)
+    and drops back down when models or caches are freed.
+    """
+    import mlx.core as mx
+    if hasattr(mx, "get_active_memory"):
+        return mx.get_active_memory() / 1e9
+    return mx.get_peak_memory() / 1e9
+
+
+
 import json
 
 def get_cached_models() -> List[Dict[str, Any]]:
@@ -134,11 +147,14 @@ def get_cached_models() -> List[Dict[str, Any]]:
                 continue
 
             is_image = (
-                any(k in repo_id.lower() for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage"))
+                any(k in repo_id.lower() for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage", "qwen-image", "qwen_image", "studio-image"))
                 or ("bonsai" in repo_id.lower() and "image" in repo_id.lower())
+                or ("qwen" in repo_id.lower() and "image" in repo_id.lower())
             )
+            is_embedding = "embedding" in repo_id.lower() or "embedding" in arch.lower()
             is_draft = (
                 not is_image
+                and not is_embedding
                 and (
                     "assistant" in repo_id.lower()
                     or "-mtp" in repo_id.lower()
@@ -167,6 +183,7 @@ def get_cached_models() -> List[Dict[str, Any]]:
                 "local_path": str(latest),
                 "is_draft": is_draft,
                 "is_image": is_image,
+                "is_embedding": is_embedding,
                 "arch": arch or model_type,
             })
     except Exception as e:

@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from tpm_mlx import state
 from tpm_mlx import director
 from tpm_mlx import vlm
-from tpm_mlx.routes import views_router, models_router, chat_router, images_router
+from tpm_mlx.routes import views_router, models_router, chat_router, images_router, embeddings_router
 from tpm_mlx.schemas import (
     ChatMessage,
     ChatCompletionRequest,
@@ -78,9 +78,14 @@ async def lifespan(app: FastAPI):
             del state.engine
         except Exception:
             pass
-    if state.image_engine is not None:
+    if getattr(state, "image_engine", None) is not None:
         try:
             state.image_engine.unload()
+        except Exception:
+            pass
+    if getattr(state, "embedding_engine", None) is not None:
+        try:
+            state.unload_embedding_engine()
         except Exception:
             pass
     logger.info("TPM-MLX server shutdown complete.")
@@ -113,6 +118,7 @@ def create_app() -> FastAPI:
     app_instance.include_router(models_router)
     app_instance.include_router(chat_router)
     app_instance.include_router(images_router)
+    app_instance.include_router(embeddings_router)
 
     return app_instance
 

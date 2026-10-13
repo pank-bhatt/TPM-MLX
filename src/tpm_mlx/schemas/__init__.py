@@ -8,6 +8,12 @@ from tpm_mlx.schemas.models import (
     ModelCard,
     ModelListResponse,
 )
+from tpm_mlx.schemas.embeddings import (
+    EmbeddingRequest,
+    EmbeddingResponse,
+    EmbeddingData,
+    EmbeddingUsage,
+)
 
 __all__ = [
     "ChatMessage",
@@ -18,4 +24,8 @@ __all__ = [
     "LoadImageModelRequest",
     "ModelCard",
     "ModelListResponse",
+    "EmbeddingRequest",
+    "EmbeddingResponse",
+    "EmbeddingData",
+    "EmbeddingUsage",
 ]

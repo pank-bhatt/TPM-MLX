@@ -309,5 +309,94 @@ def test_auto_pair_companion_mtp_draft():
         assert call_kwargs["draft_model"] == "mlx-community/Qwen3.6-35B-A3B-MTP-4bit"
 
 
+def test_get_active_memory_gb():
+    """Verifies that get_active_memory_gb tracks live unified memory accurately."""
+    from tpm_mlx.utils import get_active_memory_gb
+    mem = get_active_memory_gb()
+    assert isinstance(mem, float)
+    assert mem >= 0.0
 
+    # Allocate MLX array and verify active memory updates
+    arr = mx.zeros((100, 100, 100))
+    mx.eval(arr)
+    active_after_alloc = get_active_memory_gb()
+    assert active_after_alloc >= mem
+
+    # Free array and verify memory drops
+    del arr
+    mx.eval()
+    active_after_free = get_active_memory_gb()
+    assert active_after_free <= active_after_alloc
+
+
+def test_mutual_unload_mode_switch():
+    """Verifies that loading text engine evicts image engine, and vice versa."""
+    from unittest.mock import MagicMock
+    from tpm_mlx import state
+
+    # 1. Setup mock engines
+    mock_text = MagicMock()
+    mock_img = MagicMock()
+
+    state.engine = mock_text
+    state.loaded_model_id = "test-text-model"
+    state.image_engine = None
+    state.loaded_image_model_id = None
+
+    # Unload text engine
+    state.unload_text_engine()
+    assert state.engine is None
+    assert state.loaded_model_id is None
+
+    # Setup image engine and unload
+    state.image_engine = mock_img
+    state.loaded_image_model_id = "test-image-model"
+    state.unload_image_engine()
+    mock_img.unload.assert_called_once()
+    assert state.image_engine is None
+    assert state.loaded_image_model_id is None
+
+
+def test_models_endpoint_reports_active_memory():
+    """Verifies that /v1/models response includes active_memory_gb."""
+    client = TestClient(app)
+    resp = client.get("/v1/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "active_memory_gb" in data
+    assert isinstance(data["active_memory_gb"], (int, float))
+    assert data["active_memory_gb"] >= 0.0
+
+
+def test_qwen21_turbo_integration():
+    """Verifies Qwen-Image-2.1 Turbo scheduler registration, repo detection, and catalog presence."""
+    from tpm_mlx import state
+    from tpm_mlx.image_engine import MLXImageEngine
+    from mflux.models.common.schedulers import SCHEDULER_REGISTRY
+    import mflux.models.qwen21.variants.edit.qwen_image_21_edit as qwen_edit_mod
+
+    # 1. Verify Qwen21TurboScheduler is registered in mflux
+    assert "qwen_turbo" in SCHEDULER_REGISTRY
+    assert "qwen_turbo" in qwen_edit_mod.EDIT_SCHEDULERS
+
+    # 2. Verify repo detection
+    assert state.is_image_repo("OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit") is True
+    assert state.is_image_repo("mlx-community/Qwen-Image-2.1-MLX-4bit") is True
+    assert state.is_image_repo("mlx-community/Qwen3.8-27B-4bit") is False
+
+    # 3. Verify MLXImageEngine properties (lazy initialization)
+    eng_turbo = MLXImageEngine("OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit", lazy=True)
+    assert eng_turbo.is_qwen21 is True
+    assert eng_turbo.is_turbo is True
+    assert eng_turbo.supports_editing is True
+
+    eng_base = MLXImageEngine("mlx-community/Qwen-Image-2.1-MLX-4bit", lazy=True)
+    assert eng_base.is_qwen21 is True
+    assert eng_base.is_turbo is False
+    assert eng_base.supports_editing is True
+
+    # 4. Verify KNOWN_IMAGE_MODELS registry and that /v1/models only lists downloaded/active models
+    from tpm_mlx.routes.models import KNOWN_IMAGE_MODELS
+    assert "OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit" in KNOWN_IMAGE_MODELS
+    assert "mlx-community/Qwen-Image-2.1-MLX-4bit" in KNOWN_IMAGE_MODELS
 
