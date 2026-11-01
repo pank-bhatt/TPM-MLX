@@ -2,12 +2,15 @@
 
 ![TPM-MLX vs Ollama Benchmarks](benchmarks/text/tpm_mlx_vs_ollama_benchmarks.png)
 
-**TPM-MLX (`tpm`)** is a zero-bloat, high-performance local inference engine designed specifically for Apple Silicon hardware. Powered by Apple’s native `mlx`, `mlx-lm`, and `mlx-vlm` Metal kernels, it achieves state-of-the-art tokens-per-second (TPS) throughput by combining:
+**TPM-MLX (`tpm`)** is a zero-bloat, high-performance local inference engine designed specifically for Apple Silicon hardware. Powered by Apple’s native `mlx`, `mlx-lm`, and `mlx-vlm` Metal kernels, it achieves state-of-the-art throughput across **Text, Vision, Flow Matching Image Diffusion, 3D Mesh Synthesis, and Embeddings** by combining:
 - **Native Multi-Token Prediction (MTP) Self-Speculation** (up to **1.61× speedup** on 27B models).
 - **Zero-Config Dual-Backend Auto-Routing** (`mlx-lm` for pure LLMs + `mlx-vlm` for multimodal VLMs & Gemma 4).
 - **Pre-Allocated Static Key-Value (KV) Caching** (`PreAllocatedKVCache`) to eliminate GPU memory fragmentation.
 - **Live Streaming Reasoning Tag Normalizer** (`<think>` and `<|channel>thought`).
-- **OpenAI-Compatible REST API + Multimodal Vision Support** with a glassmorphic **Web Playground** on port `2505`.
+- **Native Flow-Matching 2D Diffusion Engine** (**FLUX.2 Klein**, **Z-Image Turbo**, **Qwen-Image 2.1**, **Bonsai 4B**).
+- **Native 3D Mesh & Texture Synthesis Subsystem** (**Hunyuan3D 2.1** with Fast UV Bake & Multi-View PBR Paint).
+- **Safe Dynamic Memory Lifecycle & Idle Eviction Watchdog** with zero-RAM standby mode and explicit memory ejection (`POST /v1/unload`).
+- **OpenAI-Compatible REST API + Local Embeddings + Interactive Glassmorphic Web Playground** on port `2505`.
 
 ---
 
@@ -25,7 +28,7 @@
 * **Gemma 4 MTP Assistant Drafters:** Seamlessly attaches companion drafters, reaching **132.6 TPS** on Gemma 4 E2B and **77.0 TPS** on Gemma 4 E4B.
 
 ### 3. 🧠 Pre-allocated Static KV Cache
-* Pre-allocates contiguous memory buffers up to the maximum sequence size (default `4096`) on the first forward pass.
+* Pre-allocates contiguous memory buffers up to the maximum sequence size (default `4096`, configurable up to `32768`) on the first forward pass.
 * Eliminates dynamic memory reallocation overhead and OS memory fragmentation during long conversations.
 
 ### 4. 🎭 Live Reasoning State Machine Normalizer
@@ -33,7 +36,7 @@
 * Filters reasoning by default (`--no-reasoning`) for immediate answers, or normalizes it for clean rendering in Web UIs and terminal clients.
 
 ### 5. 🎨 Native Apple Silicon Image Generation & Editing
-* **Flow Matching Diffusion Engine (`MLXImageEngine`):** Native generation on Apple Silicon powered by **FLUX.2 Klein (9B 4-bit / 4B)**, **Z-Image Turbo (8-bit)**, and 2-bit ternary **Bonsai 4B**.
+* **Flow Matching Diffusion Engine (`MLXImageEngine`):** Native generation on Apple Silicon powered by **FLUX.2 Klein (9B 4-bit / 4B)**, **Z-Image Turbo (8-bit)**, **Qwen-Image 2.1 (Turbo / Base)**, and 2-bit ternary **Bonsai 4B**.
 * **OpenAI-Compatible `/v1/images/generations` & `/v1/images/edits`:** Text-to-image and instruction-based image editing with real-time isolated telemetry (`mx.reset_peak_memory()`).
 * **Canvas Resolution & Aspect Ratio Selector:** Direct UI presets for `1024x1024` (Native Studio HD), `16:9`, `9:16`, `4:3`, `3:4`, and draft `512x512` with automatic prompt resolution tag extraction.
 * **Direct Mode & Configurable AI Visual Director:** Toggle between local prompt distillation (cinematography enrichment) and zero-overhead Direct Mode (`auto_expand: false`, saving ~25% turnaround time).
@@ -42,6 +45,23 @@
 * **Hardware-Accelerated Hadamard Transform:** Native Apple Silicon Metal Fast Walsh-Hadamard Transform (`fwht`) and 2-bit `Packed` quantized layers.
 * **27B Intelligence in ~8.6 GB VRAM:** Full 27B-class reasoning, coding, and multimodal vision at **20.8 TPS** on consumer Macs.
 * **27B AI Visual Director:** Unlocks pairing a full 27-billion parameter multimodal director with FLUX.2 or Z-Image in under 30 GB total VRAM.
+
+### 7. 🧊 Native Apple Silicon 3D Mesh & Texture Synthesis (`Hunyuan3D 2.1`)
+* **Text-to-3D & Image-to-3D:** Native MLX port of Hunyuan3D 2.1 executing an 8-step Shape DiT + Shape VAE + Marching Cubes pipeline to extract high-fidelity watertight `.glb` geometry in **15–20 seconds**.
+* **Dual-Mode Texture Generation:**
+  * **⚡ Fast Preview (Direct UV Bake):** Direct orthographic UV projection and baking in **3–5 seconds** with **0 extra VRAM**, ideal for immediate asset previewing and iterative workflows.
+  * **🎨 Multi-View PBR Paint:** 6-view generative diffusion painting with Albedo, Roughness, and Metallic texture maps for production-grade rendering.
+* **Interactive Web Canvas:** Three.js 3D viewport embedded in the Web Playground with orbit controls, wireframe toggles, and directional lighting.
+* **Strict Sequential Chaining:** Automatically evicts resident weights between 2D reference generation and 3D conditioning to operate safely within consumer Mac unified memory limits.
+
+### 8. 🛡️ Dynamic Memory Lifecycle & Safe Idle Eviction Watchdog
+* **Safe Background Idle Watchdog:** Periodically inspects model activity and automatically unloads idle engines (Text, Image, 3D, Embeddings) from Unified Memory after configurable inactivity timeouts (`--idle-timeout`).
+* **Active Inference Locks:** Guaranteed concurrency protection via `@contextmanager active_inference(modality)` to ensure models are never evicted while a job is in-flight.
+* **Explicit Memory Ejection API & UI:** Instantly reclaim memory via `POST /v1/unload` or the **🧹 Free RAM** button in the Web Playground.
+* **Standby Zero-VRAM Mode (`--standby`):** Start the server with 0 MB active GPU memory; models load lazily on the first incoming request.
+
+### 9. 🔍 Local Dense Embeddings Subsystem
+* High-throughput local vector embeddings via standard OpenAI-compatible `POST /v1/embeddings` with dynamic batching.
 
 ---
 
@@ -56,18 +76,16 @@
 | **Qwen 2.5 1.5B** | 1.5B Dense Edge | 4-bit | Standard Autoregressive | 213.15 TPS | **213.15 TPS** | Instant Edge Inference |
 | **Gemma 3 1B IT** | 1B Dense Edge | 4-bit | Standard Autoregressive | 247.88 TPS | **247.88 TPS** | Ultra-Fast Edge |
 
-### 🎨 Verified & Supported Image Generation & Editing Models
-
-TPM-MLX integrates native Apple Silicon flow-matching diffusion backends (`MLXImageEngine`). The table below summarizes the 6 supported models benchmarked on Apple Silicon (64 GB Unified Memory) with fixed seed `42` (see the full 24-run text-to-image + 3-model editing report in **[`benchmarks/image/README.md`](benchmarks/image/README.md)**):
+### 🎨 Verified & Supported Image Generation Models
 
 | Model | Architecture | Quantization | Steps | `512×512` Time | `1024×1024` Time | Peak VRAM | Native Editing | Primary Strength |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **FLUX.2 Klein 4B** | Rectified Flow | Unquantized BF16 | `4` | **6.45s** | **27.46s** | 14.12–19.44 GB | ❌ | **Speed Champion:** Fastest generation across both `512×512` and `1024×1024`. |
-| **Bonsai 4B** | Flow-Matching | 2-bit Ternary | `4` | 9.50s | 30.73s | **8.21–11.33 GB** | ❌ | **Extreme Memory Efficiency:** Lowest baseline footprint for 8GB/16GB Macs. |
-| **Z-Image Turbo** | Flow-Matching | 8-bit Affine | `4` | 10.32s | 47.22s | 16.17–25.93 GB | ❌ | **High-Precision Detail:** 8-bit weights, crisp typography & geometry. |
-| **FLUX.2 Klein 9B** | Rectified Flow | 4-bit Affine | `4` | 14.10s | 57.84s | 11.88–14.57 GB | **✅ Yes** | **Holistic Scene Relighting:** Exceptional 9B photorealism and environmental editing. |
-| **Qwen-Image 2.1 Turbo** | Qwen3-VL + DiT | 4-bit Affine | `8` | 20.81s | 96.49s | **9.43 GB** | **✅ Yes** | **Fast Multimodal Editor:** 4.7× faster than Base, strict pose/identity lock (`10.26 GB` edit VRAM). |
-| **Qwen-Image 2.1 Base** | Qwen3-VL + DiT | 4-bit Affine | `40` | 99.92s | 451.56s | **9.43 GB** | **✅ Yes** | **Maximum Micro-Texture:** 40-step linear refinement for skin pores, fabric, and bokeh. |
+| **FLUX.2 Klein 4B** | Rectified Flow | Unquantized BF16 | `4` | **6.45s** | **27.46s** | 14.12–19.44 GB | ❌ | **Speed Champion:** Fastest generation across resolutions. |
+| **Bonsai 4B** | Flow-Matching | 2-bit Ternary | `4` | 9.50s | 30.73s | **8.21–11.33 GB** | ❌ | **Extreme Memory Efficiency:** Lowest baseline footprint. |
+| **Z-Image Turbo** | Flow-Matching | 8-bit Affine | `4` | 10.32s | 47.22s | 16.17–25.93 GB | ❌ | **High-Precision Detail:** Crisp typography & geometry. |
+| **FLUX.2 Klein 9B** | Rectified Flow | 4-bit Affine | `4` | 14.10s | 57.84s | 11.88–14.57 GB | **✅ Yes** | **Holistic Scene Relighting:** Photorealism & environmental editing. |
+| **Qwen-Image 2.1 Turbo** | Qwen3-VL + DiT | 4-bit Affine | `8` | 20.81s | 96.49s | **9.43 GB** | **✅ Yes** | **Fast Multimodal Editor:** Strict pose/identity lock. |
+| **Qwen-Image 2.1 Base** | Qwen3-VL + DiT | 4-bit Affine | `40` | 99.92s | 451.56s | **9.43 GB** | **✅ Yes** | **Maximum Micro-Texture:** 40-step linear refinement. |
 
 > [!TIP]
 > Browse all benchmark reports in **[`benchmarks/`](benchmarks/README.md)**:
@@ -102,13 +120,13 @@ uv run tpm serve --model mlx-community/Qwen2.5-1.5B-Instruct-4bit --port 2505
 # Qwen 3.8 with Native MTP self-speculation:
 uv run tpm serve --model mlx-community/Qwen3.8-27B-4bit --draft-model mlx-community/Qwen3.8-27B-MTP-4bit --port 2505
 
-# Gemma 4 with official MTP assistant drafter:
-uv run tpm serve --model mlx-community/gemma-4-e2b-it-4bit --draft-model mlx-community/gemma-4-E2B-it-assistant-bf16 --port 2505
+# Gemma 4 with official MTP assistant drafter and 32K KV cache:
+uv run tpm serve --model mlx-community/gemma-4-e2b-it-4bit --draft-model mlx-community/gemma-4-E2B-it-assistant-bf16 --max-kv-size 32768 --port 2505
 
-# 27B Ternary Bonsai 2 paired with Z-Image Turbo:
-uv run tpm serve --model prism-ml/Ternary-Bonsai-2-27B-mlx-2bit --image-model justintime47/Z-Image-Turbo-MLX-Serve-8bit --port 2505
+# Standby Mode (Start with 0 MB VRAM, auto-loads upon first request, 5m idle eviction):
+uv run tpm serve --model mlx-community/gemma-4-e4b-it-4bit --standby --idle-timeout 300 --port 2505
 
-# Pure Image Generation (Minimal VRAM / 0 MB text model):
+# Pure Diffusion & 3D Mode (No text LLM, minimal VRAM):
 uv run tpm serve --image-model mlx-community/flux2-klein-9b-4bit --no-llm --port 2505
 ```
 Open **`http://localhost:2505`** in your browser for the Web Playground.
@@ -140,12 +158,11 @@ uv run python benchmarks/text/run_full_matrix.py
 
 ---
 
-## 🔌 OpenAI-Compatible API Endpoints
+## 🔌 API Endpoints
 
 ### `/v1/chat/completions` (POST)
 Supports standard OpenAI payloads, SSE streaming, multimodal image inputs, and custom `"reasoning"` toggling.
 
-#### 1. Text Completion Example:
 ```bash
 curl -X POST http://localhost:2505/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -157,65 +174,63 @@ curl -X POST http://localhost:2505/v1/chat/completions \
   }'
 ```
 
-#### 2. Multimodal Vision Example (with image_url):
-```bash
-curl -X POST http://localhost:2505/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "mlx-community/gemma-4-e4b-it-4bit",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {"type": "text", "text": "Describe what is in this image."},
-          {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}
-        ]
-      }
-    ],
-    "max_tokens": 256
-  }'
-```
-
-#### 3. Model Telemetry (`/v1/models`):
-```bash
-curl http://localhost:2505/v1/models
-```
-Returns active model info, `backend` (`"llm"` or `"vlm"`), `speculation_mode` (`"mtp"`, `"draft"`, or `"none"`), and `has_mtp`.
-
----
-
-### `/v1/images/generations` (POST)
-OpenAI-compatible text-to-image endpoint supporting custom canvas resolutions, steps, seeds, and LLM context distillation:
+### `/v1/images/generations` & `/v1/images/edits` (POST)
+Text-to-image and instruction-based editing:
 ```bash
 curl -X POST http://localhost:2505/v1/images/generations \
   -H "Content-Type: application/json" \
   -d '{
     "model": "justintime47/Z-Image-Turbo-MLX-Serve-8bit",
-    "prompt": "A futuristic cyberpunk noodle bar with glowing neon signs and rain-slicked asphalt",
+    "prompt": "A futuristic cyberpunk noodle bar with glowing neon signs",
     "size": "1024x1024",
     "steps": 4
   }'
 ```
 
-### `/v1/images/edits` (POST)
-Instruction-based image editing modifying existing reference images via natural language:
+### `/v1/threed/generate` & `/v1/threed/tasks/{task_id}` (POST / GET)
+Generate 3D watertight `.glb` models from text prompts or 2D reference images:
 ```bash
-curl -X POST http://localhost:2505/v1/images/edits \
+# Trigger text-to-3D generation (Fast Direct UV Bake mode):
+curl -X POST http://localhost:2505/v1/threed/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/flux2-klein-9b-4bit",
-    "image": "photo.png",
-    "prompt": "Change the background to a sunset on a tropical beach with palm trees"
+    "prompt": "A ceramic coffee mug with hand-painted floral motifs",
+    "pbr_paint": false,
+    "texture_resolution": 1024
+  }'
+
+# Query task status and retrieve .glb output URL:
+curl http://localhost:2505/v1/threed/tasks/task_12345
+```
+
+### `/v1/embeddings` (POST)
+Dense vector embeddings:
+```bash
+curl -X POST http://localhost:2505/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "BAAI/bge-small-en-v1.5",
+    "input": ["Apple Silicon Unified Memory Architecture", "Metal Compute Acceleration"]
   }'
 ```
+
+### `/v1/unload` (POST)
+Instantly evict loaded weights and KV caches from Unified Memory (returns `409 Conflict` if generation is actively running):
+```bash
+curl -X POST http://localhost:2505/v1/unload
+```
+
+### `/v1/models` (GET)
+Returns telemetry for all resident models across Text, Vision, Image, and 3D backends.
 
 ---
 
 ## 🔒 Security & Code Quality
 
 * **Safetensors Native**: Loads only `.safetensors` model weights to eliminate arbitrary code execution risks.
+* **Active Concurrency Safety**: Prevents race conditions and mid-generation memory ejections via active inference context managers.
 * **XSS Sanitized UI**: Markdown renderer escapes HTML and sanitizes URI schemes to prevent script injection.
-* **OpenAPI Validation**: Strict boundary schema validation powered by Pydantic and FastAPI.
+* **OpenAPI Validation**: Strict boundary schema validation powered by Pydantic v2 and FastAPI.
 
 ---
 
