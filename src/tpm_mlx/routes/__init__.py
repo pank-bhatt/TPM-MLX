@@ -5,6 +5,7 @@ from tpm_mlx.routes.models import router as models_router
 from tpm_mlx.routes.chat import router as chat_router
 from tpm_mlx.routes.images import router as images_router
 from tpm_mlx.routes.embeddings import router as embeddings_router
+from tpm_mlx.routes.threed import router as threed_router
 
 __all__ = [
     "views_router",
@@ -12,5 +13,6 @@ __all__ = [
     "chat_router",
     "images_router",
     "embeddings_router",
+    "threed_router",
 ]
 

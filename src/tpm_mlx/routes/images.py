@@ -60,19 +60,20 @@ async def generate_images_endpoint(req: ImageGenerationApiRequest):
     loop = asyncio.get_running_loop()
 
     def run_gen():
-        filename = f"gen_{int(time.time())}_{random.randint(1000, 9999)}.png"
-        filepath = state.images_dir / filename
-        res = img_eng.generate(
-            prompt=effective_prompt,
-            size=effective_size,
-            steps=req.steps,
-            guidance=req.guidance,
-            seed=req.seed,
-            output_path=filepath,
-            revised_prompt=revised_prompt or effective_prompt,
-            image_paths=req.image,
-        )
-        return res, filename
+        with state.active_inference("image"):
+            filename = f"gen_{int(time.time())}_{random.randint(1000, 9999)}.png"
+            filepath = state.images_dir / filename
+            res = img_eng.generate(
+                prompt=effective_prompt,
+                size=effective_size,
+                steps=req.steps,
+                guidance=req.guidance,
+                seed=req.seed,
+                output_path=filepath,
+                revised_prompt=revised_prompt or effective_prompt,
+                image_paths=req.image,
+            )
+            return res, filename
 
     try:
         result, fname = await loop.run_in_executor(state.mlx_executor, run_gen)
@@ -166,19 +167,24 @@ async def edit_images_endpoint(req: ImageEditApiRequest):
     loop = asyncio.get_running_loop()
 
     def run_edit():
-        filename = f"edit_{int(time.time())}_{random.randint(1000, 9999)}.png"
-        filepath = state.images_dir / filename
-        res = img_eng.edit(
-            image_paths=req.image,
-            prompt=effective_prompt,
-            size=effective_size,
-            steps=req.steps,
-            guidance=req.guidance,
-            seed=req.seed,
-            output_path=filepath,
-            revised_prompt=revised_prompt or effective_prompt,
-        )
-        return res, filename
+        with state.active_inference("image"):
+            filename = f"edit_{int(time.time())}_{random.randint(1000, 9999)}.png"
+            filepath = state.images_dir / filename
+            res = img_eng.edit(
+                image_paths=req.image,
+                prompt=effective_prompt,
+                size=effective_size,
+                steps=req.steps,
+                guidance=req.guidance,
+                seed=req.seed,
+                output_path=filepath,
+                revised_prompt=revised_prompt or effective_prompt,
+                auto_mask=req.auto_mask,
+                mask=req.mask,
+                strength=req.strength if req.strength is not None else 1.0,
+                enhance_prompt=req.enhance_prompt,
+            )
+            return res, filename
 
     try:
         result, fname = await loop.run_in_executor(state.mlx_executor, run_edit)

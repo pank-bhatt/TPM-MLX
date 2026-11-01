@@ -36,6 +36,24 @@ export async function loadModelApi(payload) {
 }
 
 /**
+ * Requests backend to unload active idle models from Unified Memory.
+ * @param {string} modality Optional modality ('all', '3d', 'image', 'text')
+ * @returns {Promise<any>}
+ */
+export async function unloadModelsApi(modality = "all") {
+    const resp = await fetch(`${API_URL}/v1/unload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modality })
+    });
+    const res = await resp.json();
+    if (!resp.ok) {
+        throw new Error(res.detail || "Failed to unload models");
+    }
+    return res;
+}
+
+/**
  * Uploads a reference image to the server for multimodal VLM or FLUX editing.
  * @param {File} file
  * @returns {Promise<{url: string, filename: string}>}
@@ -70,6 +88,24 @@ export async function generateImageApi(payload, isEdit = false) {
     if (!resp.ok) {
         const errObj = await resp.json();
         throw new Error(errObj.detail || "Image operation failed");
+    }
+    return await resp.json();
+}
+
+/**
+ * Generates a watertight 3D mesh via Hunyuan3D MLX.
+ * @param {object} payload
+ * @returns {Promise<any>}
+ */
+export async function generate3DApi(payload) {
+    const resp = await fetch(`${API_URL}/v1/3d/generations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+        const errObj = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(errObj.detail || "3D generation failed");
     }
     return await resp.json();
 }

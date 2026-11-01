@@ -54,11 +54,13 @@ async def create_embeddings(request: EmbeddingRequest):
     try:
         engine = await state.get_or_load_embedding_engine(request.model)
         loop = asyncio.get_running_loop()
+        def _embed():
+            with state.active_inference("embedding"):
+                return engine.embed(texts, request.dimensions)
+
         embeddings, total_tokens = await loop.run_in_executor(
             state.mlx_executor,
-            engine.embed,
-            texts,
-            request.dimensions,
+            _embed,
         )
 
         data = [

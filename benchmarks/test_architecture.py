@@ -49,8 +49,8 @@ def test_schema_validations():
 
     # Image edit request
     edit_req = ImageEditApiRequest(image="/images/test.png", prompt="Make it sunny")
-    assert edit_req.guidance == 2.5
-    assert edit_req.steps == 4
+    assert edit_req.guidance is None
+    assert edit_req.steps == 8
 
 
 def test_vlm_extract_text_and_images():
@@ -399,4 +399,41 @@ def test_qwen21_turbo_integration():
     from tpm_mlx.routes.models import KNOWN_IMAGE_MODELS
     assert "OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit" in KNOWN_IMAGE_MODELS
     assert "mlx-community/Qwen-Image-2.1-MLX-4bit" in KNOWN_IMAGE_MODELS
+
+
+def test_active_inference_guard_and_unload_endpoint():
+    """Validates in-flight busy tracking, active_inference context manager, and POST /v1/unload."""
+    import time
+    from unittest.mock import MagicMock
+    from tpm_mlx import state
+
+    # 1. Test active_inference context manager
+    assert state.busy_counts["3d"] == 0
+    t_before = time.time() - 1.0
+    state.last_completed["3d"] = t_before
+
+    with state.active_inference("3d"):
+        assert state.busy_counts["3d"] == 1
+    
+    assert state.busy_counts["3d"] == 0
+    assert state.last_completed["3d"] >= t_before
+
+    # 2. Test POST /v1/unload endpoint when engine is marked busy (should return 409)
+    client = TestClient(app)
+    mock_3d = MagicMock()
+    state.three_d_engine = mock_3d
+
+    with state.active_inference("3d"):
+        resp = client.post("/v1/unload", json={"modality": "3d"})
+        assert resp.status_code == 409
+        assert "actively running" in resp.json()["detail"]
+
+    # 3. Test POST /v1/unload endpoint when engine is idle (should succeed and call unload)
+    resp = client.post("/v1/unload", json={"modality": "3d"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert "3d" in data["unloaded"]
+    assert state.three_d_engine is None
+
 

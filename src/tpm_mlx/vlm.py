@@ -57,10 +57,11 @@ def extract_text_and_images(messages: List[Any]) -> Tuple[List[Dict[str, Any]], 
             text_parts = []
             for part in content:
                 if isinstance(part, dict):
-                    if part.get("type") == "text":
+                    p_type = part.get("type")
+                    if p_type == "text" or ("text" in part and p_type is None):
                         text_parts.append(part.get("text", ""))
-                    elif part.get("type") == "image_url":
-                        img_info = part.get("image_url", {})
+                    elif p_type == "image_url" or "image_url" in part or "url" in part:
+                        img_info = part.get("image_url", {}) if "image_url" in part else part
                         img_url = img_info.get("url", "") if isinstance(img_info, dict) else str(img_info)
                         if img_url:
                             try:

@@ -6,8 +6,8 @@
 
 import { initTheme } from "./theme.js";
 import { escapeHtml, formatMessageHtml, toggleThought } from "./markdown.js";
-import { initLightbox, openImageLightbox, closeImageLightbox, copyImageLink, handleUnsupportedModify } from "./lightbox.js";
-import { fetchModelsApi, loadModelApi, uploadImageApi, generateImageApi, streamChatCompletion } from "./api.js";
+import { initLightbox, openImageLightbox, closeImageLightbox, copyImageLink, handleUnsupportedModify, open3DLightbox, close3DLightbox } from "./lightbox.js";
+import { fetchModelsApi, loadModelApi, unloadModelsApi, uploadImageApi, generateImageApi, generate3DApi, streamChatCompletion } from "./api.js";
 import {
     chatSessions,
     activeSessionId,
@@ -28,6 +28,7 @@ import {
 let activeModel = "";
 let activeDraftModel = null;
 let activeImageModel = null;
+let active3DModel = null;
 let cachedModelsList = [];
 let attachedReferenceImageUrl = null;
 
@@ -45,6 +46,7 @@ const customDraftInput = document.getElementById("custom-draft-input");
 const draftTokensSelect = document.getElementById("draft-tokens-select");
 const kvSizeInput = document.getElementById("kv-size-input");
 const loadModelBtn = document.getElementById("load-model-btn");
+const unloadModelBtn = document.getElementById("unload-model-btn");
 const tempSlider = document.getElementById("temp-slider");
 const tempVal = document.getElementById("temp-val");
 const tokensInput = document.getElementById("tokens-input");
@@ -57,6 +59,35 @@ const currentModelHeader = document.getElementById("current-model-header");
 const headerSpeculationBadge = document.getElementById("header-speculation-badge");
 const chatContainer = document.getElementById("chat-container");
 const userInput = document.getElementById("user-input");
+
+export const DEFAULT_INPUT_PLACEHOLDER = "Ask anything";
+
+/**
+ * Permanently locks and ensures the input field placeholder is "Ask anything".
+ */
+export function ensureInputPlaceholder() {
+    if (userInput) {
+        userInput.placeholder = DEFAULT_INPUT_PLACEHOLDER;
+        userInput.setAttribute("placeholder", DEFAULT_INPUT_PLACEHOLDER);
+    }
+}
+
+// Lock placeholder property on userInput element instance so no external or legacy code can mutate it
+if (userInput) {
+    ensureInputPlaceholder();
+    try {
+        Object.defineProperty(userInput, "placeholder", {
+            get: () => DEFAULT_INPUT_PLACEHOLDER,
+            set: () => {
+                userInput.setAttribute("placeholder", DEFAULT_INPUT_PLACEHOLDER);
+            },
+            configurable: true,
+            enumerable: true
+        });
+    } catch (e) {
+        console.debug("Note: DOM placeholder property locking skipped", e);
+    }
+}
 const sendBtn = document.getElementById("send-btn");
 const uploadBtn = document.getElementById("upload-btn");
 const imageUploadInput = document.getElementById("image-upload-input");
@@ -149,12 +180,28 @@ export function openSidebar() {
 }
 
 /**
+ * Checks if a model name refers to a 3D geometry generator.
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function is3DModelName(name) {
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    return lower.includes("3d") || 
+           lower.includes("hunyuan3d") || 
+           lower.includes("hy3d") || 
+           lower.includes("shap-e") || 
+           lower.includes("triposr") || 
+           lower.includes("point-e");
+}
+
+/**
  * Checks if a model name refers to an image diffusion model.
  * @param {string} name
  * @returns {boolean}
  */
 export function isImageModelName(name) {
-    if (!name) return false;
+    if (!name || is3DModelName(name)) return false;
     const lower = name.toLowerCase();
     return lower.includes("flux") || 
            lower.includes("diffusion") || 
@@ -195,11 +242,18 @@ export function updateHeaderBadge(modelName, draftName, specMode, hasMtp, draftT
     currentModelHeader.textContent = modelName ? (isMobile ? modelName.split("/").pop() : modelName) : "Select and Load a Model";
     currentModelHeader.title = modelName || "";
     
-    const isImage = (backend === 'image') || isImageModelName(modelName);
+    const is3D = (backend === '3d') || is3DModelName(modelName);
+    const isImage = !is3D && ((backend === 'image') || isImageModelName(modelName));
 
     if (modelName) {
         headerSpeculationBadge.style.display = "inline-block";
-        if (isImage) {
+        if (is3D) {
+            headerSpeculationBadge.textContent = isMobile ? "🧊 3D Gen" : "🧊 Hunyuan3D Mesh Generator";
+            headerSpeculationBadge.title = "Native 3D Geometry Synthesis on MLX";
+            headerSpeculationBadge.style.background = "rgba(138, 43, 226, 0.15)";
+            headerSpeculationBadge.style.color = "#d8b4fe";
+            headerSpeculationBadge.style.borderColor = "rgba(138, 43, 226, 0.4)";
+        } else if (isImage) {
             headerSpeculationBadge.textContent = isMobile ? "🎨 Image Gen" : "🎨 Flow Matching Image Generator";
             headerSpeculationBadge.title = "Native Diffusion Flow Matching Image Generator on MLX";
             headerSpeculationBadge.style.background = "var(--card-bg-subtle)";
@@ -292,7 +346,8 @@ export function handleModelSelectionChange() {
     if (selectedVal === "__CUSTOM__") {
         selectedVal = customModelInput.value.trim();
     }
-    const isImage = isImageModelName(selectedVal);
+    const is3D = is3DModelName(selectedVal);
+    const isImage = !is3D && isImageModelName(selectedVal);
     
     const noticeEl = document.getElementById("image-model-notice");
     const tempContainer = tempSlider.closest(".control-group");
@@ -306,9 +361,53 @@ export function handleModelSelectionChange() {
     const stepsSlider = document.getElementById("image-steps-slider");
     const stepsVal = document.getElementById("image-steps-val");
     const dirContainer = document.getElementById("image-director-container");
+    const threedQualityContainer = document.getElementById("threed-quality-container");
+    const threedQualitySelect = document.getElementById("threed-quality-select");
+    const threedPaintResContainer = document.getElementById("threed-paint-res-container");
+    const threedTexResContainer = document.getElementById("threed-texture-res-container");
     const reasoningParent = reasoningContainer ? reasoningContainer.closest(".control-group") : null;
 
-    if (isImage) {
+    if (is3D) {
+        // Hide MTP & text-generation controls
+        if (draftContainer) draftContainer.style.display = "none";
+        if (customDraftGroup) customDraftGroup.style.display = "none";
+        if (lookaheadContainer) lookaheadContainer.style.display = "none";
+        if (kvContainer) kvContainer.style.display = "none";
+        if (paramsTitle) paramsTitle.style.display = "none";
+        if (tempContainer) tempContainer.style.display = "none";
+        if (tokensContainer) tokensContainer.style.display = "none";
+        if (reasoningParent) reasoningParent.style.display = "none";
+
+        draftSelect.value = "__NONE__";
+        draftSelect.disabled = true;
+        draftTokensSelect.disabled = true;
+        kvSizeInput.disabled = true;
+        tempSlider.disabled = true;
+        tokensInput.disabled = true;
+        reasoningCheckbox.disabled = true;
+
+        if (noticeEl) {
+            noticeEl.innerHTML = '🧊 <b>Hunyuan3D-2.1 (MLX)</b>: Synthesizes watertight 3D polygon meshes (.glb) directly from prompts or reference images.';
+            noticeEl.style.display = "block";
+        }
+        if (resContainer) resContainer.style.display = "none";
+        if (stepsContainer) stepsContainer.style.display = "none";
+        if (dirContainer) dirContainer.style.display = "none";
+        if (threedQualityContainer) threedQualityContainer.style.display = "block";
+        const isPbrMode = threedQualitySelect && threedQualitySelect.value === "pbr";
+        if (threedPaintResContainer) threedPaintResContainer.style.display = isPbrMode ? "block" : "none";
+        if (threedTexResContainer) threedTexResContainer.style.display = "block";
+
+        if (threedQualitySelect && !threedQualitySelect.dataset.listenerBound) {
+            threedQualitySelect.dataset.listenerBound = "true";
+            threedQualitySelect.addEventListener("change", () => {
+                const isPbrNow = threedQualitySelect.value === "pbr";
+                if (threedPaintResContainer) {
+                    threedPaintResContainer.style.display = isPbrNow ? "block" : "none";
+                }
+            });
+        }
+    } else if (isImage) {
         // Hide MTP & text-generation controls completely (never show MTP for image models)
         if (draftContainer) draftContainer.style.display = "none";
         if (customDraftGroup) customDraftGroup.style.display = "none";
@@ -327,10 +426,16 @@ export function handleModelSelectionChange() {
         tokensInput.disabled = true;
         reasoningCheckbox.disabled = true;
 
-        if (noticeEl) noticeEl.style.display = "block";
+        if (noticeEl) {
+            noticeEl.innerHTML = '⚡ <b>Diffusion Mode</b>: Text LLM & KV caches unloaded. Dedicated to image generation.';
+            noticeEl.style.display = "block";
+        }
         if (resContainer) resContainer.style.display = "flex";
         if (stepsContainer) stepsContainer.style.display = "flex";
         if (dirContainer) dirContainer.style.display = "block";
+        if (threedQualityContainer) threedQualityContainer.style.display = "none";
+        if (threedPaintResContainer) threedPaintResContainer.style.display = "none";
+        if (threedTexResContainer) threedTexResContainer.style.display = "none";
 
         // Auto-adjust default step count based on model family (8 for Qwen Turbo, 40 for Qwen Base, 4 for FLUX/Z-Image)
         if (stepsSlider && stepsVal) {
@@ -399,6 +504,9 @@ export function handleModelSelectionChange() {
         if (resContainer) resContainer.style.display = "none";
         if (stepsContainer) stepsContainer.style.display = "none";
         if (dirContainer) dirContainer.style.display = "none";
+        if (threedQualityContainer) threedQualityContainer.style.display = "none";
+        if (threedPaintResContainer) threedPaintResContainer.style.display = "none";
+        if (threedTexResContainer) threedTexResContainer.style.display = "none";
         autoSelectMatchingDraft(selectedVal);
     }
 }
@@ -464,9 +572,7 @@ export function attachReferenceImage(url, displayName = "Reference Image") {
     attachedImageThumb.src = url;
     attachedImageName.textContent = displayName;
     attachedImageContainer.style.display = "inline-flex";
-    userInput.placeholder = isEditImageModel 
-        ? "Describe changes to make to this image (e.g. change lighting, add object)..."
-        : "Ask a question about this image with the VLM...";
+    ensureInputPlaceholder();
     userInput.focus();
 }
 
@@ -477,7 +583,7 @@ export function clearAttachedReferenceImage() {
     attachedReferenceImageUrl = null;
     attachedImageContainer.style.display = "none";
     attachedImageThumb.src = "";
-    userInput.placeholder = "Type a message, or /image <prompt> to generate an image... (Enter to send, Shift+Enter for newline)";
+    ensureInputPlaceholder();
 }
 
 /**
@@ -516,10 +622,145 @@ export function buildImageCardHtml(item) {
                 <button type="button" class="img-action-btn" onclick="copyImageLink(this, '${item.url}')">
                     📋 Copy Link
                 </button>
+                <button type="button" class="img-action-btn" onclick="convertTo3D('${item.url}')" style="background: rgba(138, 43, 226, 0.15); border-color: rgba(138, 43, 226, 0.4); color: #d8b4fe;" title="Convert 2D image into watertight 3D geometry">
+                    🧊 Convert to 3D
+                </button>
             </div>
         </div>
     `;
 }
+
+/**
+ * Builds HTML for a generated 3D mesh card.
+ */
+export function build3DCardHtml(item, metrics = {}) {
+    const glbUrl = item.glb_url || "";
+    const usdzUrl = item.usdz_url || "";
+    return `
+        <div class="model-3d-result-card">
+            <div class="model-3d-canvas-wrapper">
+                <model-viewer src="${glbUrl}" ${usdzUrl ? `ios-src="${usdzUrl}"` : ''} alt="3D Geometry" auto-rotate camera-controls shadow-intensity="1.2" shadow-softness="0.8" tone-mapping="neutral" environment-image="neutral" exposure="1.0"></model-viewer>
+            </div>
+            <div class="image-actions">
+                <button type="button" class="img-action-btn" onclick="open3DLightbox('${glbUrl}')">
+                    🔍 Fullscreen 3D
+                </button>
+                <a href="${glbUrl}" download="mesh.glb" class="img-action-btn">
+                    ⬇️ Download GLB
+                </a>
+                ${usdzUrl ? `
+                <a href="${usdzUrl}" download="mesh.usdz" class="img-action-btn">
+                    📱 AR QuickLook
+                </a>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Builds HTML for 3D generation telemetry bar.
+ */
+export function build3DMetricsHtml(metrics = {}) {
+    return `
+        <div class="metric" data-tooltip="Model used for 3D Geometry generation">
+            <span class="metric-icon">🧊</span>
+            <span class="metric-val" style="color: var(--primary);">Hunyuan3D 2.1 (MLX)</span>
+        </div>
+        ${metrics.generation_time_s !== undefined ? `
+        <div class="metric" data-tooltip="Total 3D Generation Latency">
+            <span class="metric-icon">⏱️</span>
+            <span>Latency:</span>
+            <span class="metric-val">${metrics.generation_time_s}s</span>
+        </div>` : ''}
+        ${metrics.faces !== undefined ? `
+        <div class="metric" data-tooltip="Polygon Face Count">
+            <span class="metric-icon">🔺</span>
+            <span>Faces:</span>
+            <span class="metric-val">${metrics.faces.toLocaleString()}</span>
+        </div>` : ''}
+        ${metrics.vertices !== undefined ? `
+        <div class="metric" data-tooltip="Polygon Vertex Count">
+            <span class="metric-icon">📍</span>
+            <span>Vertices:</span>
+            <span class="metric-val">${metrics.vertices.toLocaleString()}</span>
+        </div>` : ''}
+        ${metrics.peak_memory_gb !== undefined ? `
+        <div class="metric" data-tooltip="Peak Unified Memory Footprint">
+            <span class="metric-icon">💾</span>
+            <span>Peak VRAM:</span>
+            <span class="metric-val">${metrics.peak_memory_gb} GB</span>
+        </div>` : ''}
+    `;
+}
+
+/**
+ * Converts reference 2D image into a watertight 3D mesh.
+ * @param {string} imageUrl
+ */
+export async function convertTo3D(imageUrl) {
+    const session = getActiveSession();
+    if (!session) return;
+
+    // Append user action message
+    const userMsg = {
+        role: "user",
+        content: `Convert reference image to 3D mesh: ${imageUrl}`,
+        timestamp: Date.now()
+    };
+    session.messages.push(userMsg);
+
+    const qualitySelect = document.getElementById("threed-quality-select");
+    const isPbr = qualitySelect ? (qualitySelect.value === "pbr") : false;
+
+    const assistantMsg = {
+        role: "assistant",
+        content: isPbr 
+            ? "Synthesizing watertight 3D geometry & multi-view PBR textures via Hunyuan3D 2.1 (~10m)..."
+            : "Synthesizing watertight 3D geometry via Hunyuan3D 2.1 (Fast Direct Bake)...",
+        is3D: true,
+        loading: true,
+        timestamp: Date.now()
+    };
+    session.messages.push(assistantMsg);
+    saveSessionsState();
+    renderSessionMessages(session.id);
+
+    try {
+        const paintResSelect = document.getElementById("threed-paint-res-select");
+        const paintRes = paintResSelect ? parseInt(paintResSelect.value) : 512;
+        const texResSelect = document.getElementById("threed-texture-res-select");
+        const texRes = texResSelect ? parseInt(texResSelect.value) : 2048;
+
+        const payload = {
+            model: (is3DModelName(activeModel) ? activeModel : null) || active3DModel || "dgrauet/hunyuan3d-2.1-mlx",
+            image: imageUrl,
+            steps: 30,
+            guidance_scale: 5.0,
+            octree_resolution: 256,
+            target_face_count: 35000,
+            auto_remove_bg: true,
+            pbr_paint: isPbr,
+            paint_resolution: paintRes || 512,
+            texture_resolution: texRes || 2048,
+            export_formats: ["glb", "usdz"],
+        };
+        const resp = await generate3DApi(payload);
+        const item = resp.data && resp.data.length > 0 ? resp.data[0] : {};
+        assistantMsg.loading = false;
+        assistantMsg.model3DItem = item;
+        assistantMsg.metrics = resp.tpm_metrics;
+        assistantMsg.content = `Generated watertight 3D asset (${resp.tpm_metrics.faces.toLocaleString()} faces, ${resp.tpm_metrics.vertices.toLocaleString()} vertices) in ${resp.tpm_metrics.generation_time_s}s.`;
+    } catch (err) {
+        assistantMsg.loading = false;
+        assistantMsg.content = `❌ 3D Generation Error: ${err.message}`;
+    }
+
+    saveSessionsState();
+    renderSessionMessages(session.id);
+}
+
+// Bind to window for HTML click handlers
+window.convertTo3D = convertTo3D;
 
 /**
  * Builds HTML for image generation metrics bar.
@@ -672,7 +913,10 @@ export function renderSessionMessages(sessionId) {
             const contentDiv = document.createElement("div");
             contentDiv.className = "message-body";
 
-            if (msg.isImageGen && msg.imageUrl) {
+            if (msg.is3D && msg.model3DItem) {
+                const descHtml = msg.content ? `<div style="margin-bottom: 8px; font-size: 13.5px; color: var(--text-secondary);">${escapeHtml(msg.content)}</div>` : "";
+                contentDiv.innerHTML = descHtml + build3DCardHtml(msg.model3DItem, msg.metrics);
+            } else if (msg.isImageGen && msg.imageUrl) {
                 contentDiv.innerHTML = buildImageCardHtml({
                     url: msg.imageUrl,
                     imagePrompt: msg.imagePrompt || "",
@@ -687,9 +931,13 @@ export function renderSessionMessages(sessionId) {
             if (msg.metrics) {
                 const metricsDiv = document.createElement("div");
                 metricsDiv.className = "metrics-bar";
-                metricsDiv.innerHTML = msg.isImageGen
-                    ? buildImageMetricsHtml(msg.metrics, msg.modelDisplayName)
-                    : buildChatMetricsHtml(msg.metrics, msg.usage);
+                if (msg.is3D) {
+                    metricsDiv.innerHTML = build3DMetricsHtml(msg.metrics);
+                } else if (msg.isImageGen) {
+                    metricsDiv.innerHTML = buildImageMetricsHtml(msg.metrics, msg.modelDisplayName);
+                } else {
+                    metricsDiv.innerHTML = buildChatMetricsHtml(msg.metrics, msg.usage);
+                }
                 assistantMsgDiv.appendChild(metricsDiv);
             }
 
@@ -710,6 +958,7 @@ export async function fetchModels() {
         activeModel = data.active_model || "";
         activeDraftModel = data.active_draft_model || null;
         activeImageModel = data.active_image_model || null;
+        active3DModel = data.active_3d_model || null;
 
         modelSelect.innerHTML = "";
         draftSelect.innerHTML = `
@@ -722,6 +971,9 @@ export async function fetchModels() {
 
         const imageOptGroup = document.createElement("optgroup");
         imageOptGroup.label = "🎨 Image Generation Models";
+
+        const threedOptGroup = document.createElement("optgroup");
+        threedOptGroup.label = "🧊 3D Models";
         
         const draftOptGroup = document.createElement("optgroup");
         draftOptGroup.label = "⚡ Available Draft / MTP Assistants";
@@ -729,17 +981,29 @@ export async function fetchModels() {
         let activeFound = false;
 
         cachedModelsList.forEach(m => {
-            const isImage = m.is_image || isImageModelName(m.id);
-            const isDraft = !isImage && (m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp"));
+            const is3D = m.is_3d || is3DModelName(m.id);
+            const isImage = !is3D && (m.is_image || isImageModelName(m.id));
+            const isDraft = !is3D && !isImage && (m.is_draft || m.id.toLowerCase().includes("assistant") || m.id.toLowerCase().includes("-mtp"));
             
             if (isDraft) {
                 const opt = document.createElement("option");
                 opt.value = m.id;
                 opt.title = m.id;
-                const isDraftActive = !isImageModelName(activeModel) && (activeDraftModel === m.id || (m.active && m.active_type === "draft"));
+                const isDraftActive = !isImageModelName(activeModel) && !is3DModelName(activeModel) && (activeDraftModel === m.id || (m.active && m.active_type === "draft"));
                 opt.textContent = formatModelDisplayLabel(m.id, isDraftActive);
                 if (isDraftActive) opt.selected = true;
                 draftOptGroup.appendChild(opt);
+            } else if (is3D) {
+                const opt = document.createElement("option");
+                opt.value = m.id;
+                opt.title = m.id;
+                const is3DActive = (activeModel === m.id);
+                opt.textContent = formatModelDisplayLabel(m.id, is3DActive);
+                if (activeModel === m.id) {
+                    opt.selected = true;
+                    activeFound = true;
+                }
+                threedOptGroup.appendChild(opt);
             } else if (isImage) {
                 const opt = document.createElement("option");
                 opt.value = m.id;
@@ -771,6 +1035,9 @@ export async function fetchModels() {
         customBaseOpt.textContent = "✏️ Enter Custom Model HF ID...";
         modelSelect.appendChild(textOptGroup);
         modelSelect.appendChild(imageOptGroup);
+        if (threedOptGroup.children.length > 0) {
+            modelSelect.appendChild(threedOptGroup);
+        }
         modelSelect.appendChild(customBaseOpt);
 
         const customDraftOpt = document.createElement("option");
@@ -783,7 +1050,7 @@ export async function fetchModels() {
         if (activeModel) {
             modelSelect.value = activeModel;
         }
-        if (isImageModelName(activeModel)) {
+        if (isImageModelName(activeModel) || is3DModelName(activeModel)) {
             draftSelect.value = "__NONE__";
         } else if (activeDraftModel) {
             draftSelect.value = activeDraftModel;
@@ -806,13 +1073,14 @@ export async function fetchModels() {
             updateHeaderBadge(activeModel, activeDraftModel, data.speculation_mode, data.has_mtp, data.num_draft_tokens, data.backend);
             userInput.disabled = false;
             sendBtn.disabled = false;
-            const isImg = (data.backend === "image") || isImageModelName(activeModel);
-            userInput.placeholder = isImg ? "Type an image prompt to generate..." : (isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)");
+            if (uploadBtn) uploadBtn.disabled = false;
+            ensureInputPlaceholder();
             updateServerStatus("connected", "#10b981", "Server Connected");
         } else {
             loadModelBtn.disabled = false;
             loadModelBtn.textContent = "Load Model";
             currentModelHeader.textContent = "Select and Load a Model";
+            ensureInputPlaceholder();
             updateServerStatus("connected", "#10b981", "Server Connected");
         }
     } catch (err) {
@@ -834,10 +1102,11 @@ async function handleLoadModel() {
         return;
     }
 
-    const isImage = isImageModelName(selectedModel);
+    const is3D = is3DModelName(selectedModel);
+    const isImage = !is3D && isImageModelName(selectedModel);
 
     let selectedDraft = null;
-    if (!isImage) {
+    if (!isImage && !is3D) {
         selectedDraft = draftSelect.value;
         if (selectedDraft === "__CUSTOM__") {
             selectedDraft = customDraftInput.value.trim();
@@ -894,10 +1163,10 @@ async function handleLoadModel() {
     try {
         const res = await loadModelApi({
             model: selectedModel,
-            draft_model: isImage ? null : selectedDraft,
-            max_kv_size: isImage ? null : kvSize,
-            num_draft_tokens: isImage ? null : draftTokensVal,
-            enable_mtp: !isImage,
+            draft_model: (isImage || is3D) ? null : selectedDraft,
+            max_kv_size: (isImage || is3D) ? null : kvSize,
+            num_draft_tokens: (isImage || is3D) ? null : draftTokensVal,
+            enable_mtp: !(isImage || is3D),
         });
 
         activeModel = res.model || selectedModel;
@@ -906,17 +1175,19 @@ async function handleLoadModel() {
         updateServerStatus("loaded", "#10b981", "Model Loaded");
         userInput.disabled = false;
         sendBtn.disabled = false;
+        if (uploadBtn) uploadBtn.disabled = false;
         if (isMobileView()) closeSidebar();
 
-        const isImg = res.is_image || (res.backend === "image") || isImageModelName(activeModel);
-        userInput.placeholder = isImg 
-            ? "Type an image prompt to generate... (e.g. 'A futuristic city in the clouds')" 
-            : (isMobileView() ? "Type message or /image..." : "Type a message, or /image <prompt>... (Enter to send)");
+        const is3DRes = res.is_3d || (res.backend === "3d") || is3DModelName(activeModel);
+        const isImg = !is3DRes && (res.is_image || (res.backend === "image") || isImageModelName(activeModel));
+        ensureInputPlaceholder();
 
         const currentSession = getActiveSession();
         if (currentSession) {
             currentSession.model = activeModel;
-            if (isImg && currentSession.messages.length === 0) {
+            if (is3DRes && currentSession.messages.length === 0) {
+                currentSession.type = "3d";
+            } else if (isImg && currentSession.messages.length === 0) {
                 currentSession.type = "image";
             }
             saveSessionsState();
@@ -945,6 +1216,45 @@ async function handleLoadModel() {
         loadModelBtn.disabled = false;
         loadModelBtn.textContent = "Load Model";
         fetchModels();
+    }
+}
+
+/**
+ * Handles manually ejecting active idle models from memory.
+ */
+export async function handleUnloadModels() {
+    if (!unloadModelBtn) return;
+    unloadModelBtn.disabled = true;
+    unloadModelBtn.textContent = "Freeing...";
+
+    try {
+        const res = await unloadModelsApi("all");
+        const freed = res.freed_memory_gb || 0;
+        const active = res.active_memory_gb || 0;
+
+        if (statusText) statusText.textContent = `RAM Freed (${active} GB Active)`;
+        if (headerSpeculationBadge) {
+            headerSpeculationBadge.textContent = "💤 Idle (RAM Cleared)";
+            headerSpeculationBadge.style.background = "rgba(100, 116, 139, 0.15)";
+            headerSpeculationBadge.style.color = "#94a3b8";
+            headerSpeculationBadge.style.borderColor = "rgba(100, 116, 139, 0.3)";
+        }
+
+        unloadModelBtn.textContent = `Freed ${freed} GB!`;
+        setTimeout(() => {
+            if (unloadModelBtn) {
+                unloadModelBtn.disabled = false;
+                unloadModelBtn.textContent = "🧹 Free RAM";
+            }
+        }, 2200);
+        fetchModels();
+    } catch (err) {
+        console.error("Failed to unload models:", err);
+        alert(`Could not free RAM: ${err.message}`);
+        if (unloadModelBtn) {
+            unloadModelBtn.disabled = false;
+            unloadModelBtn.textContent = "🧹 Free RAM";
+        }
     }
 }
 
@@ -987,12 +1297,16 @@ export async function sendMessage() {
     userInput.disabled = true;
     sendBtn.disabled = true;
 
-    const isCurrentImageModel = isImageModelName(activeModel) || (currentModelHeader.textContent && isImageModelName(currentModelHeader.textContent));
-    const isExplicitImageCmd = userText.startsWith("/image") || userText.startsWith("/edit");
+    const isCurrent3DModel = is3DModelName(activeModel) || (currentModelHeader.textContent && is3DModelName(currentModelHeader.textContent));
+    const isExplicit3DCmd = userText.startsWith("/3d");
+    const routeTo3DEngine = isExplicit3DCmd || isCurrent3DModel;
+
+    const isCurrentImageModel = !routeTo3DEngine && (isImageModelName(activeModel) || (currentModelHeader.textContent && isImageModelName(currentModelHeader.textContent)));
+    const isExplicitImageCmd = !routeTo3DEngine && (userText.startsWith("/image") || userText.startsWith("/edit"));
     const routeToImageEngine = isExplicitImageCmd || isCurrentImageModel;
 
     let userContentPayload = userText;
-    if (!routeToImageEngine && currentRefUrl) {
+    if (!routeToImageEngine && !routeTo3DEngine && currentRefUrl) {
         const fullUrl = currentRefUrl.startsWith("http") || currentRefUrl.startsWith("data:")
             ? currentRefUrl
             : `${window.location.origin}${currentRefUrl}`;
@@ -1009,7 +1323,7 @@ export async function sendMessage() {
         referenceImage: currentRefUrl || null,
         timestamp: Date.now()
     });
-    autoTitleSession(session, userText, routeToImageEngine);
+    autoTitleSession(session, userText, routeToImageEngine, routeTo3DEngine);
     saveSessionsState();
     renderSessionsList();
 
@@ -1021,7 +1335,7 @@ export async function sendMessage() {
     
     const loaderDiv = document.createElement("div");
     loaderDiv.className = "typing-loader";
-    loaderDiv.innerHTML = "<span></span><span></span><span></span>";
+    loaderDiv.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
     contentDiv.appendChild(loaderDiv);
     
     const metricsDiv = document.createElement("div");
@@ -1031,7 +1345,64 @@ export async function sendMessage() {
     assistantMsgDiv.appendChild(contentDiv);
     assistantMsgDiv.appendChild(metricsDiv);
     chatContainer.appendChild(assistantMsgDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    if (routeTo3DEngine) {
+        const threedPrompt = isExplicit3DCmd ? userText.slice(3).trim() : userText.trim();
+        const qualitySelect = document.getElementById("threed-quality-select");
+        const isPbr = qualitySelect ? (qualitySelect.value === "pbr") : false;
+        const statusText = isPbr 
+            ? "Synthesizing 3D mesh & multi-view PBR textures with MLX (~10m)..." 
+            : "Synthesizing watertight 3D geometry with MLX (Fast Direct Bake)...";
+        loaderDiv.innerHTML = `<span class="typing-status-pill"><span>🧊</span><span>${statusText}</span><span class="typing-status-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></span>`;
+        const refImg = currentRefUrl;
+        clearAttachedReferenceImage();
+
+        try {
+            const paintResSelect = document.getElementById("threed-paint-res-select");
+            const paintRes = paintResSelect ? parseInt(paintResSelect.value) : 512;
+            const texResSelect = document.getElementById("threed-texture-res-select");
+            const texRes = texResSelect ? parseInt(texResSelect.value) : 2048;
+
+            const payload = {
+                model: (is3DModelName(activeModel) ? activeModel : null) || active3DModel || "dgrauet/hunyuan3d-2.1-mlx",
+                image: refImg || null,
+                prompt: threedPrompt || (refImg ? null : "A futuristic cybernetic helmet"),
+                steps: 30,
+                guidance_scale: 5.0,
+                octree_resolution: 256,
+                target_face_count: 35000,
+                auto_remove_bg: true,
+                pbr_paint: isPbr,
+                paint_resolution: paintRes || 512,
+                texture_resolution: texRes || 2048,
+                export_formats: ["glb", "usdz"],
+            };
+            const resp = await generate3DApi(payload);
+            const item = resp.data && resp.data.length > 0 ? resp.data[0] : {};
+
+            const summaryText = `Generated watertight 3D asset (${resp.tpm_metrics.faces.toLocaleString()} faces, ${resp.tpm_metrics.vertices.toLocaleString()} vertices) in ${resp.tpm_metrics.generation_time_s}s.`;
+            contentDiv.innerHTML = `<div style="margin-bottom: 8px; font-size: 13.5px; color: var(--text-secondary);">${escapeHtml(summaryText)}</div>` + build3DCardHtml(item, resp.tpm_metrics);
+            metricsDiv.innerHTML = build3DMetricsHtml(resp.tpm_metrics);
+            metricsDiv.style.display = "flex";
+
+            session.messages.push({
+                role: "assistant",
+                content: summaryText,
+                is3D: true,
+                model3DItem: item,
+                metrics: resp.tpm_metrics,
+                timestamp: Date.now()
+            });
+            saveSessionsState();
+        } catch (err) {
+            contentDiv.innerHTML = `<span style="color: var(--danger);">❌ 3D Generation Error: ${escapeHtml(err.message)}</span>`;
+        } finally {
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            ensureInputPlaceholder();
+            userInput.focus();
+        }
+        return;
+    }
 
     if (routeToImageEngine) {
         const isEdit = !!currentRefUrl || userText.startsWith("/edit");
@@ -1040,9 +1411,9 @@ export async function sendMessage() {
         let imagePrompt = userText.startsWith("/image") ? userText.slice(6).trim() : (userText.startsWith("/edit") ? userText.slice(5).trim() : userText.trim());
         if (!imagePrompt) imagePrompt = isEdit ? "Refine and enhance image details and lighting" : "A beautiful scenic view on Apple Silicon";
 
-        loaderDiv.innerHTML = isEdit 
-            ? `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">✏️ <span>Modifying image with Apple Silicon MLX...</span></span>`
-            : `<span style="font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 8px;">🎨 <span>Generating image with Apple Silicon MLX...</span></span>`;
+        const statusIcon = isEdit ? "✏️" : "🎨";
+        const statusText = isEdit ? "Modifying image with Apple Silicon MLX..." : "Generating image with Apple Silicon MLX...";
+        loaderDiv.innerHTML = `<span class="typing-status-pill"><span>${statusIcon}</span><span>${statusText}</span><span class="typing-status-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></span>`;
 
         try {
             const recentContext = (session.messages || [])
@@ -1124,6 +1495,7 @@ export async function sendMessage() {
         } finally {
             userInput.disabled = false;
             sendBtn.disabled = false;
+            ensureInputPlaceholder();
             if (!isMobileView()) userInput.focus();
         }
         return;
@@ -1185,6 +1557,7 @@ export async function sendMessage() {
     } finally {
         userInput.disabled = false;
         sendBtn.disabled = false;
+        ensureInputPlaceholder();
         if (!isMobileView()) userInput.focus();
     }
 }
@@ -1309,6 +1682,9 @@ function initEventListeners() {
     }
 
     loadModelBtn.addEventListener("click", handleLoadModel);
+    if (unloadModelBtn) {
+        unloadModelBtn.addEventListener("click", handleUnloadModels);
+    }
 
     reasoningCheckbox.addEventListener("change", updateReasoningBadge);
     reasoningContainer.addEventListener("click", (e) => {
@@ -1333,16 +1709,26 @@ function initEventListeners() {
     sendBtn.addEventListener("click", sendMessage);
 
     // Session actions
-    if (newChatBtn) newChatBtn.addEventListener("click", () => createNewSession(activeModel, true));
-    if (headerNewChatBtn) headerNewChatBtn.addEventListener("click", () => createNewSession(activeModel, true));
+    if (newChatBtn) newChatBtn.addEventListener("click", () => {
+        createNewSession(activeModel, true);
+        ensureInputPlaceholder();
+    });
+    if (headerNewChatBtn) headerNewChatBtn.addEventListener("click", () => {
+        createNewSession(activeModel, true);
+        ensureInputPlaceholder();
+    });
     if (exportChatBtn) exportChatBtn.addEventListener("click", exportCurrentChat);
-    if (clearSessionsBtn) clearSessionsBtn.addEventListener("click", clearAllSessions);
+    if (clearSessionsBtn) clearSessionsBtn.addEventListener("click", () => {
+        clearAllSessions();
+        ensureInputPlaceholder();
+    });
 
     // Global Cmd+K / Ctrl+K shortcut for New Chat
     window.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
             e.preventDefault();
             createNewSession(activeModel, true);
+            ensureInputPlaceholder();
         }
     });
 
@@ -1350,6 +1736,7 @@ function initEventListeners() {
     registerSessionCallbacks({
         onSwitch: (sessionId, isCurrent) => {
             renderSessionMessages(sessionId);
+            ensureInputPlaceholder();
             if (isMobileView()) closeSidebar();
             if (userInput && !isMobileView()) userInput.focus();
         },

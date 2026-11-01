@@ -11,14 +11,15 @@ import gc
 import time
 import asyncio
 import logging
+from contextlib import contextmanager
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 import mlx.core as mx
 
 from tpm_mlx.engine import MLXEngine
-from tpm_mlx.utils import get_logger
+from tpm_mlx.utils import get_active_memory_gb, get_cached_models, get_logger, reclaim_metal_memory
 
 logger = get_logger("state")
 
@@ -49,18 +50,96 @@ loaded_embedding_model_id: Optional[str] = None
 embedding_loading_lock = asyncio.Lock()
 DEFAULT_EMBEDDING_MODEL = os.environ.get("TPM_DEFAULT_EMBEDDING_MODEL", "mlx-community/embeddinggemma-2-4bit")
 
-# Directory paths for static frontend assets and generated images
+# Global 3D generation engine state (Hunyuan3D 2.1)
+three_d_engine: Optional[Any] = None
+loaded_3d_model_id: Optional[str] = None
+three_d_loading_lock = asyncio.Lock()
+DEFAULT_3D_MODEL = os.environ.get("TPM_DEFAULT_3D_MODEL", "dgrauet/hunyuan3d-2.1-mlx")
+
+# Directory paths for static frontend assets, generated images, and 3D models
 static_dir = Path(__file__).parent / "static"
 images_dir = static_dir / "images"
 images_dir.mkdir(parents=True, exist_ok=True)
+models_3d_dir = static_dir / "models_3d"
+models_3d_dir.mkdir(parents=True, exist_ok=True)
 
 # Default pre-allocated KV cache capacity
 default_max_kv_size = 4096
 
+# Idle eviction and active request tracking
+# Default idle timeouts in seconds (0 to disable eviction):
+# 3D: 300s (5 min) - large ~7 GB shape pipeline
+# Image: 300s (5 min) - large ~8.5 GB diffusion pipeline
+# Text: 900s (15 min) - primary conversational LLM
+# Embedding: 600s (10 min) - embedding engine
+DEFAULT_IDLE_TIMEOUT = int(os.environ.get("TPM_IDLE_TIMEOUT", "300"))
+IDLE_TIMEOUT_3D = int(os.environ.get("TPM_IDLE_TIMEOUT_3D", str(DEFAULT_IDLE_TIMEOUT)))
+IDLE_TIMEOUT_IMAGE = int(os.environ.get("TPM_IDLE_TIMEOUT_IMAGE", str(DEFAULT_IDLE_TIMEOUT)))
+IDLE_TIMEOUT_TEXT = int(os.environ.get("TPM_IDLE_TIMEOUT_TEXT", str(os.environ.get("TPM_IDLE_TIMEOUT", "900"))))
+IDLE_TIMEOUT_EMBEDDING = int(os.environ.get("TPM_IDLE_TIMEOUT_EMBEDDING", "600"))
+
+busy_counts: Dict[str, int] = {
+    "text": 0,
+    "image": 0,
+    "3d": 0,
+    "embedding": 0,
+}
+
+last_completed: Dict[str, float] = {
+    "text": time.time(),
+    "image": 0.0,
+    "3d": 0.0,
+    "embedding": 0.0,
+}
+
+
+@contextmanager
+def active_inference(modality: str):
+    """Context manager to guarantee an engine is never evicted while actively executing inference.
+
+    Increments in-flight busy count on entry; decrements and marks last_completed on exit.
+    """
+    busy_counts[modality] = busy_counts.get(modality, 0) + 1
+    try:
+        yield
+    finally:
+        busy_counts[modality] = max(0, busy_counts.get(modality, 1) - 1)
+        last_completed[modality] = time.time()
+
+
+def unload_all_engines() -> dict:
+    """Evicts all active idle engines (Text, Image, 3D, Embedding) and flushes Metal Unified Memory."""
+    unloaded = []
+    if engine is not None and busy_counts.get("text", 0) == 0:
+        unload_text_engine()
+        unloaded.append("text")
+    if image_engine is not None and busy_counts.get("image", 0) == 0:
+        unload_image_engine()
+        unloaded.append("image")
+    if three_d_engine is not None and busy_counts.get("3d", 0) == 0:
+        unload_3d_engine()
+        unloaded.append("3d")
+    if embedding_engine is not None and busy_counts.get("embedding", 0) == 0:
+        unload_embedding_engine()
+        unloaded.append("embedding")
+    reclaim_metal_memory()
+    return {
+        "unloaded": unloaded,
+        "active_memory_gb": round(get_active_memory_gb(), 2),
+    }
+
+
+def is_3d_repo(repo_id: Optional[str]) -> bool:
+    """Checks whether a Hugging Face repository ID corresponds to a 3D geometry model."""
+    if not repo_id:
+        return False
+    lower = repo_id.lower()
+    return any(k in lower for k in ("3d", "hunyuan3d", "hy3d", "shap-e", "triposr", "point-e"))
+
 
 def is_image_repo(repo_id: Optional[str]) -> bool:
     """Checks whether a Hugging Face repository ID corresponds to an image diffusion model."""
-    if not repo_id:
+    if not repo_id or is_3d_repo(repo_id):
         return False
     lower = repo_id.lower()
     return (
@@ -89,15 +168,7 @@ def unload_text_engine() -> None:
         except Exception:
             pass
         del old_engine
-        gc.collect()
-        try:
-            mx.clear_cache()
-            if hasattr(mx, "metal"):
-                mx.metal.clear_cache()
-            mx.reset_peak_memory()
-        except Exception:
-            pass
-        from tpm_mlx.utils import get_active_memory_gb
+        reclaim_metal_memory()
         logger.info(f"Text engine evicted. Active Unified Memory: {get_active_memory_gb():.2f} GB")
 
 
@@ -116,22 +187,45 @@ def unload_image_engine() -> None:
         except Exception:
             pass
         del old_img
-        gc.collect()
+        reclaim_metal_memory()
+def unload_3d_engine() -> None:
+    """
+    Unloads active 3D generation engine and flushes Unified Memory and Metal GPU caches.
+    """
+    global three_d_engine, loaded_3d_model_id
+    if three_d_engine is not None:
+        logger.info(f"Mutual Unload: Evicting 3D engine '{loaded_3d_model_id}' from Unified Memory...")
+        old_3d = three_d_engine
+        three_d_engine = None
+        loaded_3d_model_id = None
         try:
-            mx.clear_cache()
-            if hasattr(mx, "metal"):
-                mx.metal.clear_cache()
-            mx.reset_peak_memory()
+            old_3d.unload()
         except Exception:
             pass
-        from tpm_mlx.utils import get_active_memory_gb
-        logger.info(f"Image engine evicted. Active Unified Memory: {get_active_memory_gb():.2f} GB")
+        del old_3d
+        reclaim_metal_memory()
+        logger.info(f"3D engine evicted. Active Unified Memory: {get_active_memory_gb():.2f} GB")
+
+
+def evict_peer_instance(port: int = 2506) -> None:
+    """Non-blocking cross-daemon eviction request to reclaim external heavy engine VRAM."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/v1/unload",
+            data=b'{"modality": "all"}',
+            headers={"Content-Type": "application/json", "User-Agent": "TPM-MLX-Peer-Evict/0.5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            logger.info(f"Cross-daemon eviction sent to port {port}: status={resp.status}")
+    except Exception as e:
+        logger.debug(f"Cross-daemon eviction notice (port {port} offline or idle: {e})")
 
 
 async def get_or_load_image_engine(model_id: Optional[str] = None) -> Any:
     """
     Dynamically retrieves or initializes the MLX Image Engine.
-    Cleans up old weights, performs mutual unload of text engines, and flushes Metal cache.
+    Cleans up old weights, performs mutual unload of text and 3D engines, and flushes Metal cache.
     """
     global image_engine, loaded_image_model_id, mlx_executor
     from tpm_mlx.image_engine import MLXImageEngine
@@ -145,9 +239,12 @@ async def get_or_load_image_engine(model_id: Optional[str] = None) -> Any:
         if image_engine is not None and loaded_image_model_id == target_model:
             return image_engine
 
-        # Mutual Unload: Free active text engine from Unified Memory before loading diffusion model
+        # Mutual Unload: Free active text and 3D engines before loading diffusion model
         if engine is not None:
             unload_text_engine()
+        if three_d_engine is not None:
+            unload_3d_engine()
+        evict_peer_instance(2506)
 
         logger.info(f"Loading image engine with model: {target_model}...")
 
@@ -160,14 +257,7 @@ async def get_or_load_image_engine(model_id: Optional[str] = None) -> Any:
             except Exception:
                 pass
             del old_img
-            gc.collect()
-            try:
-                mx.clear_cache()
-                if hasattr(mx, "metal"):
-                    mx.metal.clear_cache()
-                mx.reset_peak_memory()
-            except Exception:
-                pass
+            reclaim_metal_memory()
 
         def init_img():
             try:
@@ -226,9 +316,11 @@ async def load_engine(
         ):
             return engine
 
-        # Mutual Unload: Free active image diffusion engine before loading text model
+        # Mutual Unload: Free active image diffusion and 3D engines before loading text model
         if image_engine is not None:
             unload_image_engine()
+        if three_d_engine is not None:
+            unload_3d_engine()
 
         is_loading = True
         loading_model_id = model_id
@@ -255,11 +347,7 @@ async def load_engine(
             del old_engine
 
         def init_engine():
-            gc.collect()
-            mx.clear_cache()
-            if hasattr(mx, "metal"):
-                mx.metal.clear_cache()
-            mx.reset_peak_memory()
+            reclaim_metal_memory()
 
             try:
                 eng = MLXEngine(
@@ -280,11 +368,7 @@ async def load_engine(
                     num_draft_tokens=num_draft_tokens,
                 )
 
-            gc.collect()
-            mx.clear_cache()
-            if hasattr(mx, "metal"):
-                mx.metal.clear_cache()
-            mx.reset_peak_memory()
+            reclaim_metal_memory()
 
             return eng
 
@@ -327,15 +411,7 @@ def unload_embedding_engine() -> None:
         except Exception:
             pass
         del old_engine
-        gc.collect()
-        try:
-            mx.clear_cache()
-            if hasattr(mx, "metal"):
-                mx.metal.clear_cache()
-            mx.reset_peak_memory()
-        except Exception:
-            pass
-        from tpm_mlx.utils import get_active_memory_gb
+        reclaim_metal_memory()
         logger.info(f"Embedding engine evicted. Active Unified Memory: {get_active_memory_gb():.2f} GB")
 
 
@@ -406,8 +482,91 @@ async def get_or_load_embedding_engine(model_id: Optional[str] = None) -> MLXEmb
         return embedding_engine
 
 
+async def get_or_load_3d_engine(model_id: Optional[str] = None) -> Any:
+    """
+    Dynamically retrieves or initializes the MLX 3D Engine.
+    Performs mutual unload of text and 2D image diffusion engines to maximize unified memory headroom.
+    """
+    global three_d_engine, loaded_3d_model_id, mlx_executor
+    from tpm_mlx.engine_3d import MLX3DEngine
+
+    target_model = model_id or loaded_3d_model_id or DEFAULT_3D_MODEL
+
+    if three_d_engine is not None and loaded_3d_model_id == target_model:
+        return three_d_engine
+
+    async with three_d_loading_lock:
+        if three_d_engine is not None and loaded_3d_model_id == target_model:
+            return three_d_engine
+
+        # Mutual Unload: Free active text, image, and embedding engines
+        if engine is not None:
+            unload_text_engine()
+        if image_engine is not None:
+            unload_image_engine()
+        if embedding_engine is not None:
+            unload_embedding_engine()
+        evict_peer_instance(2506)
+
+        logger.info(f"Loading 3D engine with model: {target_model}...")
+
+        old_3d = three_d_engine
+        three_d_engine = None
+        if old_3d is not None and loaded_3d_model_id != target_model:
+            try:
+                old_3d.unload()
+            except Exception:
+                pass
+            del old_3d
+            reclaim_metal_memory()
+
+        def init_3d():
+            eng = MLX3DEngine(model_id=target_model)
+            eng.load_pipeline(target_model)
+            return eng
+
+        loop = asyncio.get_running_loop()
+        new_3d_engine = await loop.run_in_executor(mlx_executor, init_3d)
+        three_d_engine = new_3d_engine
+        loaded_3d_model_id = target_model
+        return three_d_engine
+
+
+def get_image_engine() -> Any:
+    """Synchronous accessor for active image engine (initializes default if absent)."""
+    global image_engine, loaded_image_model_id
+    from tpm_mlx.image_engine import MLXImageEngine
+
+    if image_engine is None:
+        if engine is not None:
+            unload_text_engine()
+        if three_d_engine is not None:
+            unload_3d_engine()
+        image_engine = MLXImageEngine(lazy=False)
+        loaded_image_model_id = MLXImageEngine.DEFAULT_MODEL
+    return image_engine
+
+
+def get_3d_engine() -> Any:
+    """Synchronous accessor for active 3D engine (initializes default if absent)."""
+    global three_d_engine, loaded_3d_model_id
+    from tpm_mlx.engine_3d import MLX3DEngine
+
+    if three_d_engine is None:
+        if engine is not None:
+            unload_text_engine()
+        if image_engine is not None:
+            unload_image_engine()
+        eng = MLX3DEngine(model_id=DEFAULT_3D_MODEL)
+        eng.load_pipeline(DEFAULT_3D_MODEL)
+        three_d_engine = eng
+        loaded_3d_model_id = DEFAULT_3D_MODEL
+    return three_d_engine
+
+
 # Backwards compatibility aliases
 _get_or_load_image_engine = get_or_load_image_engine
 _load_engine = load_engine
 _get_or_load_embedding_engine = get_or_load_embedding_engine
+_get_or_load_3d_engine = get_or_load_3d_engine
 

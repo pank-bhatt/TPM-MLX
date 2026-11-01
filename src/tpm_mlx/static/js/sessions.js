@@ -280,10 +280,14 @@ export function exportCurrentChat() {
  * @param {string} userPrompt
  * @param {boolean} isImage
  */
-export function autoTitleSession(session, userPrompt, isImage) {
+export function autoTitleSession(session, userPrompt, isImage, is3D) {
     if (!session || (session.title !== "New Chat" && session.title !== "Untitled")) return;
     let clean = (userPrompt || "").trim();
-    if (isImage) {
+    if (is3D) {
+        if (clean.startsWith("/3d")) clean = clean.slice(3).trim();
+        session.type = "3d";
+        session.title = clean ? (clean.length > 32 ? clean.slice(0, 32).trim() + "…" : clean) : "3D Mesh Asset";
+    } else if (isImage) {
         if (clean.startsWith("/image")) clean = clean.slice(6).trim();
         if (clean.startsWith("/edit")) clean = clean.slice(5).trim();
         session.type = "image";
@@ -322,7 +326,7 @@ export function renderSessionsList() {
 
     sessionsListEl.innerHTML = chatSessions.map(session => {
         const isActive = session.id === activeSessionId;
-        const icon = session.type === "image" ? "🎨" : "💬";
+        const icon = session.type === "3d" ? "🧊" : (session.type === "image" ? "🎨" : "💬");
         const relTime = formatRelativeTime(session.updatedAt || session.createdAt);
         const titleSafe = escapeHtml(session.title || "Untitled");
         return `

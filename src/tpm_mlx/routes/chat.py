@@ -33,27 +33,71 @@ async def chat_completions(req: ChatCompletionRequest):
     current_engine = state.engine
     current_model_id = state.loaded_model_id
 
-    # If model is currently loading, await completion for up to 20s before returning 503
+    # If model is currently loading, await completion or return 503
     if current_engine is None:
-        if state.is_loading and state.loading_task and not state.loading_task.done():
-            logger.info(f"Chat request arrived while model '{state.loading_model_id}' is loading. Waiting for load task...")
-            try:
-                await asyncio.wait_for(asyncio.shield(state.loading_task), timeout=20.0)
-                current_engine = state.engine
-                current_model_id = state.loaded_model_id
-            except (asyncio.TimeoutError, Exception) as wait_err:
-                logger.warning(f"Wait for in-flight model loading concluded with: {wait_err}")
+        if state.is_loading:
+            if state.loading_task and not state.loading_task.done():
+                logger.info(f"Chat request arrived while model '{state.loading_model_id}' is loading. Waiting for load task...")
+                try:
+                    await asyncio.wait_for(asyncio.shield(state.loading_task), timeout=20.0)
+                    current_engine = state.engine
+                    current_model_id = state.loaded_model_id
+                except Exception as wait_err:
+                    logger.warning(f"Wait for in-flight model loading concluded with: {wait_err}")
 
-        if current_engine is None:
-            if state.is_loading:
+            if current_engine is None:
                 raise HTTPException(
                     status_code=503,
                     detail=f"Model '{state.loading_model_id}' is currently loading. Please retry in a few moments.",
                     headers={"Retry-After": "5"}
                 )
+
+        # On-Demand Auto-Loading: if no engine is active and not loading, auto-load designated model
+        if current_engine is None:
+            target_model = None
+            if req.model and req.model.strip() and req.model.strip().lower() not in ("default", "model", "auto"):
+                target_model = req.model.strip()
+            elif os.environ.get("TPM_STANDBY_MODEL"):
+                target_model = os.environ.get("TPM_STANDBY_MODEL")
+            elif os.environ.get("TPM_DEFAULT_MODEL") and os.environ.get("TPM_DEFAULT_MODEL").lower() not in ("none", "null", ""):
+                target_model = os.environ.get("TPM_DEFAULT_MODEL")
+
+            if target_model:
+                logger.info(f"On-Demand Activation: Auto-loading '{target_model}' for chat completion...")
+                target_draft = os.environ.get("TPM_STANDBY_DRAFT_MODEL") or os.environ.get("TPM_DEFAULT_DRAFT_MODEL")
+                if not target_draft:
+                    if "qwen3.6-35b-a3b" in target_model.lower():
+                        target_draft = "mlx-community/Qwen3.6-35B-A3B-MTP-4bit"
+                    elif "gemma-4-e2b" in target_model.lower():
+                        target_draft = "mlx-community/gemma-4-E2B-it-assistant-bf16"
+                    elif "gemma-4-e4b" in target_model.lower():
+                        target_draft = "mlx-community/gemma-4-E4B-it-qat-assistant-4bit"
+
+                kv_size = int(os.environ.get("TPM_MAX_KV_SIZE", str(state.default_max_kv_size)))
+                enable_mtp = os.environ.get("TPM_ENABLE_MTP", "True").lower() == "true"
+                num_draft = int(os.environ.get("TPM_NUM_DRAFT_TOKENS")) if os.environ.get("TPM_NUM_DRAFT_TOKENS") else None
+
+                load_coro = state.load_engine(
+                    model_id=target_model,
+                    max_kv_size=kv_size,
+                    draft_model=target_draft,
+                    enable_mtp=enable_mtp,
+                    num_draft_tokens=num_draft,
+                )
+                load_task = asyncio.create_task(load_coro)
+                state.loading_task = load_task
+                try:
+                    await asyncio.shield(load_task)
+                    current_engine = state.engine
+                    current_model_id = state.loaded_model_id
+                except Exception as load_err:
+                    logger.error(f"On-demand auto-load of {target_model} failed: {load_err}")
+                    raise HTTPException(status_code=500, detail=f"Failed to auto-load model '{target_model}': {load_err}")
+
+        if current_engine is None:
             raise HTTPException(
                 status_code=400,
-                detail="No model is loaded. Please load a model using /v1/load_model first.",
+                detail="No model is loaded. Please specify a model in request or load via /v1/load_model.",
             )
 
     # Resolve reasoning flag
@@ -114,23 +158,24 @@ async def chat_completions(req: ChatCompletionRequest):
             cancel_event = threading.Event()
 
             def producer():
-                try:
-                    for response in current_engine.generate_stream(
-                        prompt=prompt,
-                        max_tokens=req.max_tokens,
-                        temperature=req.temperature,
-                        show_reasoning=show_reasoning,
-                        images=images if images else None,
-                    ):
-                        if cancel_event.is_set():
-                            logger.info("Stream generation aborted: client disconnected.")
-                            break
-                        loop.call_soon_threadsafe(queue.put_nowait, response)
-                    if not cancel_event.is_set():
-                        loop.call_soon_threadsafe(queue.put_nowait, None)
-                except Exception as ex:
-                    logger.error(f"Error in stream producer thread: {ex}")
-                    loop.call_soon_threadsafe(queue.put_nowait, ex)
+                with state.active_inference("text"):
+                    try:
+                        for response in current_engine.generate_stream(
+                            prompt=prompt,
+                            max_tokens=req.max_tokens,
+                            temperature=req.temperature,
+                            show_reasoning=show_reasoning,
+                            images=images if images else None,
+                        ):
+                            if cancel_event.is_set():
+                                logger.info("Stream generation aborted: client disconnected.")
+                                break
+                            loop.call_soon_threadsafe(queue.put_nowait, response)
+                        if not cancel_event.is_set():
+                            loop.call_soon_threadsafe(queue.put_nowait, None)
+                    except Exception as ex:
+                        logger.error(f"Error in stream producer thread: {ex}")
+                        loop.call_soon_threadsafe(queue.put_nowait, ex)
 
             # Start generator in executor thread
             loop.run_in_executor(state.mlx_executor, producer)
@@ -241,16 +286,17 @@ async def chat_completions(req: ChatCompletionRequest):
 
     else:
         def consume_generator():
-            responses = []
-            for response in current_engine.generate_stream(
-                prompt=prompt,
-                max_tokens=req.max_tokens,
-                temperature=req.temperature,
-                show_reasoning=show_reasoning,
-                images=images if images else None,
-            ):
-                responses.append(response)
-            return responses
+            with state.active_inference("text"):
+                responses = []
+                for response in current_engine.generate_stream(
+                    prompt=prompt,
+                    max_tokens=req.max_tokens,
+                    temperature=req.temperature,
+                    show_reasoning=show_reasoning,
+                    images=images if images else None,
+                ):
+                    responses.append(response)
+                return responses
 
         try:
             responses = await loop.run_in_executor(state.mlx_executor, consume_generator)

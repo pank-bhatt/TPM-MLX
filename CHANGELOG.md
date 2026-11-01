@@ -4,6 +4,29 @@ All notable changes to **TPM-MLX** are documented in this file.
 
 ---
 
+## [0.6.0] - 2026-10-31
+
+### 🧊 Hunyuan3D-2.1 Native Apple Silicon 3D Generation Subsystem
+- **Stage 1 Flow-Matching Geometry Engine (`Hunyuan3DShapePipeline`):** Integrated native MLX implementation of Tencent Hunyuan3D-2.1 (`dgrauet/hunyuan3d-2.1-mlx` weights) featuring 8-step consistency-distilled Shape DiT (`1.1B-turbo`), DINOv2 vision encoder, and ShapeVAE decoder.
+- **Hierarchical Octree SDF Decoding (>85% Attention Reduction):** Implemented coarse-to-fine multi-resolution volumetric grid querying (`64³ → 128³ → 256³`) with near-surface 6-neighbor sign change masking and 3D dilation, pruning empty air and query evaluations by over 85%.
+- **Zero-Sync Flow Matching Denoising Loop:** Denoising updates executed asynchronously with `mx.async_eval` across all 8 consistency steps with zero CPU-GPU sync stalls, synchronizing only prior to marching cubes mesh extraction.
+- **Fast Mesh Decimation & glTF / USDZ Export:** Cleaned floating artifacts, performed automatic quadric decimation to target polygon count (default 40,000 faces), applied neutral studio clay PBR material, and exported watertight `.glb` / `.usdz` meshes.
+- **Stage 2 Multi-View Generative PBR Paint & Fast Direct UV Bake:** Implemented both generative 6-view multi-view PBR diffusion painting (`Hunyuan3DPaintPipelineMLX`) and ultra-fast direct orthographic UV baking (`bake_mesh_uv_texture()`, 3–5s, 0 extra VRAM), selectable via a Texture Generation Mode dropdown.
+- **Strict Sequential Chaining & Peak RAM Optimizations:** Decoupled Text → 2D Reference (`Qwen-Image-2.1`) → 3D Shape synthesis so 2D and 3D pipelines never co-exist in memory, eliminating concurrent 37+ GB peak RAM spikes. Added periodic `mx.clear_cache()` and intermediate tensor flushes across DiT, VAE, and decimation phases.
+- **Mutual Unified Memory Eviction:** Extended `tpm_mlx.state` with `unload_3d_engine()`. Loading the 3D pipeline automatically evicts text LLMs, diffusion image models, and embedding engines to provide maximum Unified Memory headroom on Apple Silicon.
+- **REST API Endpoint (`POST /v1/3d/generations`):** Exposed high-throughput 3D mesh synthesis endpoint accepting image paths, data URIs, or text prompts (with zero-copy Text → 2D → 3D chaining), supporting both synchronous and asynchronous task polling (`/v1/3d/tasks/{task_id}`).
+- **CLI Subcommand (`tpm generate-3d`):** Added command-line utility for one-command 3D mesh generation (`tpm generate-3d --image input.png -o output.glb`).
+- **Web Studio 3D Lightbox & One-Click 2D-to-3D Chaining:** Integrated Google `<model-viewer>` in the Web Playground with camera orbit controls, AR QuickLook support, and a `🧊 Convert to 3D` action button on every generated 2D image card.
+- **Robust Background Removal:** Pinned `onnxruntime>=1.20.0` and added defensive `BaseException`/`SystemExit` catch blocks in `preprocessor.py` for reliable alpha foreground isolation.
+
+### 🛡️ Safe Idle Eviction Watchdog & Active Inference Guards
+- **In-Flight Reference Counter (`busy_counts`):** Added `@contextmanager active_inference(modality)` to track active compute jobs across Text, Image, 3D, and Embedding pipelines. The idle timeout countdown only begins *after* inference finishes.
+- **Safe Background Watchdog (`_idle_eviction_watchdog`):** Periodically inspects idle engines in the server lifespan, checks timeouts (default: 5m for 3D/Image, 15m for Text), and safely evicts models to `mlx_executor` inside thread-safe loading locks.
+- **Explicit Eject API & Web Playground Control:** Added `POST /v1/unload` (with 409 Conflict safety guard when busy) and a `🧹 Free RAM` button in the sidebar to release Unified Memory instantly on demand.
+- **Permanent Placeholder Lock:** Guaranteed the chat input placeholder is permanently locked to `"Ask anything"` across all screens, sessions, and modal switches.
+
+---
+
 ## [0.5.0] - 2026-10-13
 
 ### 🎨 Qwen-Image 2.1 (Turbo 8-Step & Base 40-Step) Integration

@@ -38,12 +38,29 @@ def main():
 @click.option("--reasoning/--no-reasoning", default=False, help="Toggle whether the server outputs <think> blocks by default (default: False)")
 @click.option("--image-model", type=str, default=None, help="Optional image generation model to preload (default: None)")
 @click.option("--no-llm", is_flag=True, default=False, help="Run without loading a text LLM (pure image generation / minimal VRAM mode)")
-def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool, image_model: Optional[str], no_llm: bool):
+@click.option("--standby", is_flag=True, default=False, help="Start in zero-VRAM standby mode and load model on-demand upon first request")
+@click.option("--idle-timeout", type=int, default=300, help="Idle timeout in seconds before unloader evicts inactive models (default: 300; 0 to disable)")
+def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_size: int, mtp: bool, num_draft_tokens: Optional[int], reasoning: bool, image_model: Optional[str], no_llm: bool, standby: bool, idle_timeout: int):
     """Starts the FastAPI OpenAI-compatible server and Web Playground."""
     logger.info(f"Starting TPM-MLX REST server on http://{host}:{port}/")
     
     # Store settings in environment variables for server startup loading
-    if no_llm or (model and model.lower() in ("none", "null")):
+    if standby:
+        logger.info(f"Standby Mode: Server starting with zero active VRAM. '{model}' will load on-demand.")
+        os.environ["TPM_STANDBY_MODE"] = "True"
+        os.environ["TPM_STANDBY_MODEL"] = model
+        if draft_model:
+            os.environ["TPM_STANDBY_DRAFT_MODEL"] = draft_model
+        elif "qwen3.6-35b-a3b" in model.lower():
+            os.environ["TPM_STANDBY_DRAFT_MODEL"] = "mlx-community/Qwen3.6-35B-A3B-MTP-4bit"
+        elif "gemma-4-e2b" in model.lower():
+            os.environ["TPM_STANDBY_DRAFT_MODEL"] = "mlx-community/gemma-4-E2B-it-assistant-bf16"
+        elif "gemma-4-e4b" in model.lower():
+            os.environ["TPM_STANDBY_DRAFT_MODEL"] = "mlx-community/gemma-4-E4B-it-qat-assistant-4bit"
+
+        os.environ["TPM_DEFAULT_MODEL"] = "none"
+        os.environ.pop("TPM_DEFAULT_DRAFT_MODEL", None)
+    elif no_llm or (model and model.lower() in ("none", "null")):
         os.environ["TPM_DEFAULT_MODEL"] = "none"
         os.environ.pop("TPM_DEFAULT_DRAFT_MODEL", None)
     else:
@@ -71,6 +88,8 @@ def serve(model: str, draft_model: Optional[str], port: int, host: str, max_kv_s
         os.environ["TPM_DEFAULT_IMAGE_MODEL"] = image_model
     else:
         os.environ.pop("TPM_DEFAULT_IMAGE_MODEL", None)
+
+    os.environ["TPM_IDLE_TIMEOUT"] = str(idle_timeout)
     
     # Run Uvicorn ASGI server
     uvicorn.run("tpm_mlx.server:app", host=host, port=port, reload=False)
@@ -278,6 +297,72 @@ def generate_image_cli(prompt: str, model: str, output: str, size: str, steps: i
     res = engine.generate(prompt=prompt, size=size, steps=steps, seed=seed, output_path=output)
     click.echo(click.style(f"Success! Image saved to {output}", fg="green", bold=True))
     click.echo(f"Latency: {res.metrics.generation_time_s}s ({res.metrics.step_time_s}s/step) | Peak VRAM: {res.metrics.peak_memory_gb} GB")
+
+
+@main.command(name="generate-3d")
+@click.option("--image", "-i", type=str, default=None, help="Reference image path or URL")
+@click.option("--prompt", "-p", type=str, default=None, help="Optional text prompt for 2D->3D chaining")
+@click.option("--model", "-m", type=str, default="dgrauet/hunyuan3d-2.1-mlx", help="3D model path or ID (default: dgrauet/hunyuan3d-2.1-mlx)")
+@click.option("--output", "-o", type=str, default="output.glb", help="Output 3D mesh file path (default: output.glb)")
+@click.option("--steps", type=int, default=30, help="Flow matching denoising steps (default: 30)")
+@click.option("--guidance-scale", "-g", type=float, default=7.5, help="Classifier-free guidance scale (default: 7.5)")
+@click.option("--octree-res", type=int, default=256, help="Marching cubes resolution (default: 256)")
+@click.option("--faces", type=int, default=40000, help="Target face count after decimation (default: 40000)")
+@click.option("--seed", type=int, default=None, help="Deterministic random seed")
+@click.option("--no-bg-remove", is_flag=True, default=False, help="Skip automated foreground subject isolation")
+def generate_3d_cli(
+    image: Optional[str],
+    prompt: Optional[str],
+    model: str,
+    output: str,
+    steps: int,
+    guidance_scale: float,
+    octree_res: int,
+    faces: int,
+    seed: Optional[int],
+    no_bg_remove: bool,
+):
+    """Generates a watertight 3D mesh (.glb) from an image or prompt using MLX."""
+    if not image and not prompt:
+        click.echo(click.style("Error: Either --image or --prompt must be provided.", fg="red"), err=True)
+        sys.exit(1)
+
+    from tpm_mlx.engine_3d import MLX3DEngine
+    from tpm_mlx.schemas.threed import ThreeDGenerationRequest
+
+    click.echo(click.style(f"Initializing 3D engine: {model}...", fg="cyan"))
+    engine = MLX3DEngine(model_id=model)
+    engine.load_pipeline(model)
+
+    out_p = Path(output)
+    req = ThreeDGenerationRequest(
+        model=model,
+        image=image,
+        prompt=prompt,
+        steps=steps,
+        guidance_scale=guidance_scale,
+        octree_resolution=octree_res,
+        target_face_count=faces,
+        seed=seed,
+        auto_remove_bg=not no_bg_remove,
+        export_formats=["glb"],
+    )
+
+    click.echo(click.style(f"Generating 3D mesh ({octree_res}³ grid, {steps} steps, target {faces} faces)...", fg="yellow"))
+    resp, exported = engine.generate_mesh(req, output_dir=out_p.parent)
+
+    # Move or rename the exported GLB to the exact target path if different
+    glb_path = exported.get("glb")
+    if glb_path and Path(glb_path) != out_p:
+        import shutil
+        shutil.copyfile(glb_path, out_p)
+
+    m = resp.tpm_metrics
+    click.echo(click.style(f"Success! Watertight 3D mesh saved to {output}", fg="green", bold=True))
+    click.echo(
+        f"Latency: {m.generation_time_s}s | Faces: {m.faces:,} | "
+        f"Vertices: {m.vertices:,} | Peak VRAM: {m.peak_memory_gb} GB"
+    )
 
 
 if __name__ == "__main__":

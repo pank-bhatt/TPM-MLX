@@ -15,6 +15,13 @@ from tpm_mlx.schemas.embeddings import (
     EmbeddingUsage,
 )
 
+from tpm_mlx.schemas.threed import (
+    ThreeDGenerationRequest,
+    ThreeDMetrics,
+    ThreeDModelItem,
+    ThreeDGenerationResponse,
+)
+
 __all__ = [
     "ChatMessage",
     "ChatCompletionRequest",
@@ -28,4 +35,8 @@ __all__ = [
     "EmbeddingResponse",
     "EmbeddingData",
     "EmbeddingUsage",
+    "ThreeDGenerationRequest",
+    "ThreeDMetrics",
+    "ThreeDModelItem",
+    "ThreeDGenerationResponse",
 ]

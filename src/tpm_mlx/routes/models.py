@@ -4,6 +4,7 @@
 Model catalog inspection and dynamic switching endpoints.
 """
 
+import os
 import time
 import gc
 import asyncio
@@ -29,6 +30,10 @@ KNOWN_IMAGE_MODELS = [
     "mlx-community/bonsai-image-ternary-4B-mlx-2bit",
 ]
 
+KNOWN_3D_MODELS = [
+    "dgrauet/hunyuan3d-2.1-mlx",
+]
+
 
 @router.get("/models")
 async def list_models():
@@ -38,8 +43,9 @@ async def list_models():
     data = []
     seen_ids = set()
 
-    # 1. Add currently loaded text/vision LLM or image model if available
-    is_curr_img = state.is_image_repo(state.loaded_model_id) if state.loaded_model_id else False
+    # 1. Add currently loaded text/vision LLM, image model, or 3D model if available
+    is_curr_3d = state.is_3d_repo(state.loaded_model_id) if state.loaded_model_id else False
+    is_curr_img = (not is_curr_3d) and (state.is_image_repo(state.loaded_model_id) if state.loaded_model_id else False)
     if state.loaded_model_id:
         seen_ids.add(state.loaded_model_id)
         data.append({
@@ -48,34 +54,55 @@ async def list_models():
             "created": int(time.time()),
             "owned_by": "tpm-mlx",
             "active": True,
-            "active_type": "image" if is_curr_img else "llm",
+            "active_type": "3d" if is_curr_3d else ("image" if is_curr_img else "llm"),
             "is_draft": False,
             "is_image": is_curr_img,
-            "backend": "image" if is_curr_img else getattr(state.engine, "backend", "llm"),
+            "is_3d": is_curr_3d,
+            "backend": "3d" if is_curr_3d else ("image" if is_curr_img else getattr(state.engine, "backend", "llm")),
             "max_kv_size": getattr(state.engine, "max_kv_size", state.default_max_kv_size),
-            "speculation_mode": "none" if is_curr_img else getattr(state.engine, "speculation_mode", "none"),
-            "has_mtp": False if is_curr_img else getattr(state.engine, "has_mtp", False),
-            "num_draft_tokens": 0 if is_curr_img else getattr(state.engine, "num_draft_tokens", 0),
-            "draft_model": None if is_curr_img else state.loaded_draft_model_id,
+            "speculation_mode": "none" if (is_curr_img or is_curr_3d) else getattr(state.engine, "speculation_mode", "none"),
+            "has_mtp": False if (is_curr_img or is_curr_3d) else getattr(state.engine, "has_mtp", False),
+            "num_draft_tokens": 0 if (is_curr_img or is_curr_3d) else getattr(state.engine, "num_draft_tokens", 0),
+            "draft_model": None if (is_curr_img or is_curr_3d) else state.loaded_draft_model_id,
             "status": "ready",
         })
 
     # Active embedding model if loaded
     if getattr(state, "embedding_engine", None) is not None and getattr(state, "loaded_embedding_model_id", None):
-        seen_ids.add(state.loaded_embedding_model_id)
-        data.append({
-            "id": state.loaded_embedding_model_id,
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": "tpm-mlx",
-            "active": True,
-            "active_type": "embedding",
-            "is_draft": False,
-            "is_image": False,
-            "is_embedding": True,
-            "backend": "embeddinggemma2",
-            "status": "ready",
-        })
+        if state.loaded_embedding_model_id not in seen_ids:
+            seen_ids.add(state.loaded_embedding_model_id)
+            data.append({
+                "id": state.loaded_embedding_model_id,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "tpm-mlx",
+                "active": True,
+                "active_type": "embedding",
+                "is_draft": False,
+                "is_image": False,
+                "is_3d": False,
+                "is_embedding": True,
+                "backend": "embeddinggemma2",
+                "status": "ready",
+            })
+
+    # Active 3D model if loaded
+    if getattr(state, "three_d_engine", None) is not None and getattr(state, "loaded_3d_model_id", None):
+        if state.loaded_3d_model_id not in seen_ids:
+            seen_ids.add(state.loaded_3d_model_id)
+            data.append({
+                "id": state.loaded_3d_model_id,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "tpm-mlx",
+                "active": True,
+                "active_type": "3d",
+                "is_draft": False,
+                "is_image": False,
+                "is_3d": True,
+                "backend": "hunyuan3d-2.1",
+                "status": "ready",
+            })
 
     # If a model is currently in-flight loading
     if state.is_loading and state.loading_model_id and state.loading_model_id not in seen_ids:
@@ -105,6 +132,8 @@ async def list_models():
         is_active_draft = bool(not is_curr_img and state.loaded_draft_model_id and repo_id == state.loaded_draft_model_id)
         # An image model in cache is ONLY active if it is the currently loaded base model
         is_active_image = bool(is_curr_img and state.loaded_model_id and repo_id == state.loaded_model_id)
+        is_3d = item.get("is_3d", False)
+        is_active_3d = bool(getattr(state, "three_d_engine", None) is not None and repo_id == getattr(state, "loaded_3d_model_id", None))
         is_embedding = item.get("is_embedding", False)
         is_active_emb = bool(getattr(state, "embedding_engine", None) is not None and repo_id == getattr(state, "loaded_embedding_model_id", None))
 
@@ -113,14 +142,15 @@ async def list_models():
             "object": "model",
             "created": int(item["last_modified"]),
             "owned_by": "huggingface",
-            "active": is_active_image or is_active_draft or is_active_emb,
-            "active_type": "embedding" if is_active_emb else ("image" if is_active_image else ("draft" if is_active_draft else None)),
+            "active": is_active_image or is_active_draft or is_active_emb or is_active_3d,
+            "active_type": "3d" if is_active_3d else ("embedding" if is_active_emb else ("image" if is_active_image else ("draft" if is_active_draft else None))),
             "is_draft": item.get("is_draft", False),
             "is_image": item.get("is_image", False),
+            "is_3d": is_3d,
             "is_embedding": is_embedding,
             "size_bytes": item.get("size_on_disk", 0),
             "arch": item.get("arch", ""),
-            "status": "ready" if (is_active_image or is_active_draft or is_active_emb) else "cached",
+            "status": "ready" if (is_active_image or is_active_draft or is_active_emb or is_active_3d) else "cached",
         })
 
     loading_elapsed = round(time.time() - state.loading_start_time, 1) if (state.is_loading and state.loading_start_time) else None
@@ -129,17 +159,20 @@ async def list_models():
         "object": "list",
         "data": data,
         "active_model": state.loaded_model_id,
-        "active_draft_model": None if is_curr_img else state.loaded_draft_model_id,
+        "active_draft_model": None if (is_curr_img or is_curr_3d) else state.loaded_draft_model_id,
         "active_image_model": state.loaded_model_id if is_curr_img else state.loaded_image_model_id,
         "active_embedding_model": getattr(state, "loaded_embedding_model_id", None),
-        "speculation_mode": "none" if is_curr_img else (getattr(state.engine, "speculation_mode", "none") if state.engine else "none"),
-        "has_mtp": False if is_curr_img else (getattr(state.engine, "has_mtp", False) if state.engine else False),
-        "num_draft_tokens": 0 if is_curr_img else (getattr(state.engine, "num_draft_tokens", 0) if state.engine else 0),
-        "backend": "image" if is_curr_img else (getattr(state.engine, "backend", "llm") if state.engine else "llm"),
+        "active_3d_model": state.loaded_model_id if is_curr_3d else getattr(state, "loaded_3d_model_id", None),
+        "speculation_mode": "none" if (is_curr_img or is_curr_3d) else (getattr(state.engine, "speculation_mode", "none") if state.engine else "none"),
+        "has_mtp": False if (is_curr_img or is_curr_3d) else (getattr(state.engine, "has_mtp", False) if state.engine else False),
+        "num_draft_tokens": 0 if (is_curr_img or is_curr_3d) else (getattr(state.engine, "num_draft_tokens", 0) if state.engine else 0),
+        "backend": "3d" if is_curr_3d else ("image" if is_curr_img else (getattr(state.engine, "backend", "llm") if state.engine else "llm")),
         "is_loading": state.is_loading,
         "loading_model": state.loading_model_id if state.is_loading else None,
         "loading_elapsed_s": loading_elapsed,
-        "status": "loading" if state.is_loading else ("ready" if (state.engine or (is_curr_img and state.image_engine)) else "idle"),
+        "status": "loading" if state.is_loading else ("ready" if (state.engine or (is_curr_img and state.image_engine) or (is_curr_3d and state.three_d_engine)) else "idle"),
+        "is_standby": os.environ.get("TPM_STANDBY_MODE") == "True",
+        "standby_model": os.environ.get("TPM_STANDBY_MODEL"),
         "active_memory_gb": round(get_active_memory_gb(), 2),
     }
 
@@ -169,6 +202,24 @@ async def load_model_endpoint(req: LoadModelRequest):
             "active_memory_gb": round(get_active_memory_gb(), 2),
         }
 
+    if state.is_3d_repo(req.model):
+        await state.get_or_load_3d_engine(req.model)
+        state.loaded_model_id = req.model
+        state.loaded_draft_model_id = None
+        return {
+            "status": "success",
+            "message": f"Successfully loaded 3D model {req.model}",
+            "model": req.model,
+            "draft_model": None,
+            "backend": "3d",
+            "speculation_mode": "none",
+            "has_mtp": False,
+            "num_draft_tokens": 0,
+            "is_image": False,
+            "is_3d": True,
+            "is_loading": False,
+        }
+
     if state.is_image_repo(req.model):
         await state.get_or_load_image_engine(req.model)
         state.loaded_model_id = req.model
@@ -183,6 +234,7 @@ async def load_model_endpoint(req: LoadModelRequest):
             "has_mtp": False,
             "num_draft_tokens": 0,
             "is_image": True,
+            "is_3d": False,
             "is_loading": False,
         }
 
@@ -268,3 +320,55 @@ async def load_image_model_endpoint(req: LoadImageModelRequest):
     """Dynamically loads or switches the active image generation model."""
     await state.get_or_load_image_engine(req.model)
     return JSONResponse(content={"status": "ok", "loaded_image_model": req.model})
+
+
+@router.post("/unload")
+async def unload_models_endpoint(req: Optional[dict] = None):
+    """Explicitly evicts active idle models from Unified Memory.
+
+    Accepts optional {"modality": "all" | "3d" | "image" | "text" | "embedding"}.
+    Defaults to 'all'.
+    """
+    modality = (req or {}).get("modality", "all").lower() if req else "all"
+    initial_mem = get_active_memory_gb()
+    loop = asyncio.get_running_loop()
+
+    unloaded = []
+    if modality in ("all", "3d") and state.three_d_engine is not None:
+        if state.busy_counts.get("3d", 0) > 0:
+            raise HTTPException(status_code=409, detail="Cannot unload 3D engine while generation is actively running.")
+        async with state.three_d_loading_lock:
+            await loop.run_in_executor(state.mlx_executor, state.unload_3d_engine)
+            unloaded.append("3d")
+
+    if modality in ("all", "image") and state.image_engine is not None:
+        if state.busy_counts.get("image", 0) > 0:
+            raise HTTPException(status_code=409, detail="Cannot unload image engine while generation is actively running.")
+        async with state.image_loading_lock:
+            await loop.run_in_executor(state.mlx_executor, state.unload_image_engine)
+            unloaded.append("image")
+
+    if modality in ("all", "text") and state.engine is not None:
+        if state.busy_counts.get("text", 0) > 0:
+            raise HTTPException(status_code=409, detail="Cannot unload text engine while generation is actively running.")
+        async with state.model_loading_lock:
+            await loop.run_in_executor(state.mlx_executor, state.unload_text_engine)
+            unloaded.append("text")
+
+    if modality in ("all", "embedding") and state.embedding_engine is not None:
+        if state.busy_counts.get("embedding", 0) > 0:
+            raise HTTPException(status_code=409, detail="Cannot unload embedding engine while generation is actively running.")
+        async with state.embedding_loading_lock:
+            await loop.run_in_executor(state.mlx_executor, state.unload_embedding_engine)
+            unloaded.append("embedding")
+
+    final_mem = get_active_memory_gb()
+    freed_gb = max(0.0, initial_mem - final_mem)
+
+    return JSONResponse(content={
+        "status": "success",
+        "unloaded": unloaded,
+        "initial_memory_gb": round(initial_mem, 2),
+        "active_memory_gb": round(final_mem, 2),
+        "freed_memory_gb": round(freed_gb, 2),
+    })

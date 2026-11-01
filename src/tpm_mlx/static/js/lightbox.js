@@ -102,6 +102,49 @@ export function handleUnsupportedModify() {
     alert("Image modification (Image-to-Image editing) requires Qwen-Image-2.1 (e.g. OsaurusAI/Qwen-Image-2.1-Turbo-mflux-4bit) or FLUX.2 Klein (e.g. mlx-community/flux2-klein-9b-4bit). Please load one from the sidebar to edit images.");
 }
 
+let model3dModalEl = null;
+let model3dBackdropEl = null;
+let model3dViewerEl = null;
+let model3dCaptionEl = null;
+let model3dDownloadBtnEl = null;
+let model3dCloseBtnEl = null;
+
+export function open3DLightbox(glbUrl, caption = "🧊 Watertight 3D Geometry") {
+    if (!model3dModalEl) {
+        model3dModalEl = document.getElementById("model-3d-modal");
+        model3dBackdropEl = document.getElementById("model-3d-backdrop");
+        model3dViewerEl = document.getElementById("model-3d-viewer");
+        model3dCaptionEl = document.getElementById("model-3d-caption");
+        model3dDownloadBtnEl = document.getElementById("model-3d-download-btn");
+        model3dCloseBtnEl = document.getElementById("model-3d-close-btn");
+    }
+    if (!model3dModalEl || !model3dViewerEl) return;
+
+    model3dViewerEl.setAttribute("src", glbUrl);
+    if (model3dCaptionEl) model3dCaptionEl.textContent = caption;
+    if (model3dDownloadBtnEl) model3dDownloadBtnEl.href = glbUrl;
+
+    model3dModalEl.style.display = "flex";
+    model3dModalEl.classList.add("active");
+    model3dModalEl.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+}
+
+export function close3DLightbox() {
+    if (!model3dModalEl) {
+        model3dModalEl = document.getElementById("model-3d-modal");
+        model3dViewerEl = document.getElementById("model-3d-viewer");
+    }
+    if (!model3dModalEl) return;
+    model3dModalEl.classList.remove("active");
+    model3dModalEl.setAttribute("aria-hidden", "true");
+    model3dModalEl.style.display = "none";
+    document.body.style.overflow = "";
+    if (model3dViewerEl) {
+        model3dViewerEl.removeAttribute("src");
+    }
+}
+
 /**
  * Initializes lightbox DOM elements and event bindings.
  */
@@ -115,12 +158,18 @@ export function initLightbox() {
     closeBtnEl = document.getElementById("lightbox-close-btn");
     contentEl = document.getElementById("lightbox-content");
 
-    if (backdropEl) {
-        backdropEl.addEventListener("click", closeImageLightbox);
-    }
-    if (closeBtnEl) {
-        closeBtnEl.addEventListener("click", closeImageLightbox);
-    }
+    model3dModalEl = document.getElementById("model-3d-modal");
+    model3dBackdropEl = document.getElementById("model-3d-backdrop");
+    model3dViewerEl = document.getElementById("model-3d-viewer");
+    model3dCaptionEl = document.getElementById("model-3d-caption");
+    model3dDownloadBtnEl = document.getElementById("model-3d-download-btn");
+    model3dCloseBtnEl = document.getElementById("model-3d-close-btn");
+
+    if (backdropEl) backdropEl.addEventListener("click", closeImageLightbox);
+    if (closeBtnEl) closeBtnEl.addEventListener("click", closeImageLightbox);
+
+    if (model3dBackdropEl) model3dBackdropEl.addEventListener("click", close3DLightbox);
+    if (model3dCloseBtnEl) model3dCloseBtnEl.addEventListener("click", close3DLightbox);
 
     if (contentEl) {
         contentEl.addEventListener("click", (e) => {
@@ -138,8 +187,13 @@ export function initLightbox() {
     }
 
     window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && modalEl && modalEl.classList.contains("active")) {
-            closeImageLightbox();
+        if (e.key === "Escape") {
+            if (modalEl && modalEl.classList.contains("active")) {
+                closeImageLightbox();
+            }
+            if (model3dModalEl && model3dModalEl.classList.contains("active")) {
+                close3DLightbox();
+            }
         }
     });
 
@@ -154,4 +208,8 @@ export function initLightbox() {
             }
         }
     });
+
+    // Expose on window for inline handlers
+    window.open3DLightbox = open3DLightbox;
+    window.close3DLightbox = close3DLightbox;
 }

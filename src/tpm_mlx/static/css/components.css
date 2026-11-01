@@ -435,6 +435,41 @@ input:checked + .slider:before {
     transform: none;
 }
 
+.unload-btn {
+    background: var(--card-bg-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.unload-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-1px);
+}
+
+.unload-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.unload-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .status-badge {
     margin-top: auto;
     background: var(--status-connected-bg);
@@ -769,6 +804,55 @@ input:checked + .slider:before {
     background: var(--surface-hover);
     border-color: var(--border-hover);
     color: var(--text-primary);
+}
+
+/* Generated 3D Asset Card */
+.model-3d-result-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+    max-width: 560px;
+    width: 100%;
+    background: var(--card-bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.model-3d-result-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.model-3d-canvas-wrapper {
+    width: 100%;
+    height: 340px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, rgba(35, 45, 60, 0.7), rgba(10, 12, 16, 0.95));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+}
+
+.model-3d-canvas-wrapper model-viewer {
+    width: 100%;
+    height: 100%;
+    --poster-color: transparent;
+    outline: none;
+}
+
+@media (max-width: 768px) {
+    .model-3d-result-card {
+        max-width: 100%;
+    }
+    .model-3d-canvas-wrapper {
+        height: 280px;
+    }
 }
 
 /* Full-Screen Glassmorphic Image Lightbox */

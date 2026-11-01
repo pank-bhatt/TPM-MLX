@@ -70,6 +70,8 @@ src/tpm_mlx/static/images/**
 !src/tpm_mlx/static/images/.gitkeep
 src/tpm_mlx/static/videos/**
 !src/tpm_mlx/static/videos/.gitkeep
+src/tpm_mlx/static/models_3d/**
+!src/tpm_mlx/static/models_3d/.gitkeep
 
 
 # Local internal plans and notes (never commit to public repo)

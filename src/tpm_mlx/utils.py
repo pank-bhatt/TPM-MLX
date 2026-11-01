@@ -1,9 +1,11 @@
 # Copyright © 2026 TPM-MLX Authors. All rights reserved.
 
+import os
+import gc
 import sys
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Optional
 from huggingface_hub import scan_cache_dir
 
 
@@ -77,6 +79,45 @@ def get_active_memory_gb() -> float:
     return mx.get_peak_memory() / 1e9
 
 
+def configure_metal_memory(cache_limit_gb: Optional[float] = None) -> None:
+    """Configures MLX Metal allocator cache limit to avoid unbounded buffer retention.
+
+    Defaults to 4.0 GB (or TPM_MLX_METAL_CACHE_LIMIT_GB env var). Setting a finite
+    cache limit ensures that deallocated buffers during multi-step diffusion and joint
+    cross-attention are actively returned to macOS instead of ballooning up to the system RAM.
+    """
+    import mlx.core as mx
+    env_limit = os.environ.get("TPM_MLX_METAL_CACHE_LIMIT_GB")
+    target_gb = float(env_limit) if env_limit is not None else (cache_limit_gb if cache_limit_gb is not None else 4.0)
+    if target_gb <= 0:
+        return
+    try:
+        limit_bytes = int(target_gb * 1024 * 1024 * 1024)
+        if hasattr(mx, "set_cache_limit"):
+            mx.set_cache_limit(limit_bytes)
+        elif hasattr(mx, "metal") and hasattr(mx.metal, "set_cache_limit"):
+            mx.metal.set_cache_limit(limit_bytes)
+        logger.info(f"Configured MLX Metal cache limit to {target_gb:.1f} GB")
+    except Exception as e:
+        logger.debug(f"Could not configure MLX Metal cache limit: {e}")
+
+
+def reclaim_metal_memory() -> None:
+    """Immediately flushes freed intermediate tensors and returns Metal pool buffers to macOS."""
+    import mlx.core as mx
+    try:
+        gc.collect()
+        if hasattr(mx, "clear_cache"):
+            mx.clear_cache()
+        elif hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
+            mx.metal.clear_cache()
+        if hasattr(mx, "reset_peak_memory"):
+            mx.reset_peak_memory()
+    except Exception as e:
+        logger.debug(f"Could not reclaim MLX Metal cache: {e}")
+
+
+
 
 import json
 
@@ -146,14 +187,23 @@ def get_cached_models() -> List[Dict[str, Any]]:
             if not has_weights:
                 continue
 
+            is_3d = (
+                any(k in repo_id.lower() for k in ("3d", "hunyuan3d", "hy3d", "shap-e", "triposr", "point-e"))
+                or "3d" in model_type.lower()
+                or "3d" in arch.lower()
+            )
             is_image = (
-                any(k in repo_id.lower() for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage", "qwen-image", "qwen_image", "studio-image"))
-                or ("bonsai" in repo_id.lower() and "image" in repo_id.lower())
-                or ("qwen" in repo_id.lower() and "image" in repo_id.lower())
+                not is_3d
+                and (
+                    any(k in repo_id.lower() for k in ("flux", "diffusion", "klein", "sdxl", "stable-diffusion", "z_image", "z-image", "zimage", "qwen-image", "qwen_image", "studio-image"))
+                    or ("bonsai" in repo_id.lower() and "image" in repo_id.lower())
+                    or ("qwen" in repo_id.lower() and "image" in repo_id.lower())
+                )
             )
             is_embedding = "embedding" in repo_id.lower() or "embedding" in arch.lower()
             is_draft = (
-                not is_image
+                not is_3d
+                and not is_image
                 and not is_embedding
                 and (
                     "assistant" in repo_id.lower()
@@ -183,6 +233,7 @@ def get_cached_models() -> List[Dict[str, Any]]:
                 "local_path": str(latest),
                 "is_draft": is_draft,
                 "is_image": is_image,
+                "is_3d": is_3d,
                 "is_embedding": is_embedding,
                 "arch": arch or model_type,
             })

@@ -1,6 +1,6 @@
 [project]
 name = "tpm-mlx"
-version = "0.5.0"
+version = "0.6.0"
 description = "Zero-bloat, highly optimized Apple Silicon local inference engine featuring pre-allocated KV caches, zero-sync Metal pipelines, OpenAI API compliance, and a premium Web Playground."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,14 +9,27 @@ dependencies = [
     "fastapi>=0.136.3",
     "huggingface-hub>=1.18.0",
     "jinja2>=3.1.6",
+    "mflux>=0.22.0",
     "mlx>=0.31.2",
     "mlx-lm>=0.31.3",
     "mlx-vlm>=0.6.17",
     "orjson>=3.11.9",
-    "pillow>=10.0.0",
+    "pillow>=12.0.0,<13.0.0",
     "python-multipart>=0.0.9",
     "transformers>=5.11.0",
     "uvicorn>=0.49.0",
+]
+
+[project.optional-dependencies]
+3d = [
+    "mlx-arsenal>=0.16.0",
+    "onnxruntime>=1.20.0",
+    "pygltflib>=1.16.0",
+    "rembg>=2.0.80",
+    "scikit-image>=0.24.0",
+    "scipy>=1.13.0",
+    "trimesh>=4.4.0",
+    "xatlas>=0.0.9",
 ]
 
 [project.scripts]

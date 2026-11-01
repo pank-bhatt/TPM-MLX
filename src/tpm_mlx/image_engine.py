@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import gc
 import logging
+import os
 import random
 import time
 from dataclasses import dataclass
@@ -20,9 +21,12 @@ from typing import Any, Optional, Sequence, Tuple, Union
 import mlx.core as mx
 from PIL import Image
 
-from tpm_mlx.utils import get_active_memory_gb
+from tpm_mlx.utils import configure_metal_memory, get_active_memory_gb, reclaim_metal_memory
 
 logger = logging.getLogger("tpm-mlx.image_engine")
+
+# Initialize Metal memory cache cap on module load
+configure_metal_memory()
 
 
 @dataclass
@@ -48,6 +52,11 @@ class ImageResult:
     metrics: ImageGenerationMetrics
     saved_path: Optional[Path] = None
     revised_prompt: Optional[str] = None
+
+    @property
+    def file_path(self) -> Optional[Path]:
+        """Backwards compatibility accessor for saved_path."""
+        return self.saved_path
 
 
 
@@ -340,10 +349,7 @@ class MLXImageEngine:
             del self.qwen21_edit_model
             self.qwen21_edit_model = None
         self.is_loaded = False
-        gc.collect()
-        mx.clear_cache()
-        if hasattr(mx, "metal"):
-            mx.metal.clear_cache()
+        reclaim_metal_memory()
         logger.info("Image engine unloaded and Metal cache cleared.")
 
     @staticmethod
@@ -465,11 +471,15 @@ class MLXImageEngine:
             mx.eval(gen_result.array)
 
         elapsed = time.perf_counter() - start_time
-        peak_mem = get_active_memory_gb()
+        peak_mem = (mx.get_peak_memory() / 1e9) if hasattr(mx, "get_peak_memory") else get_active_memory_gb()
 
         pil_img = gen_result.to_pil()
         png_bytes = gen_result.to_png_bytes()
         b64_json = base64.b64encode(png_bytes).decode("ascii")
+
+        # Immediately reclaim transient Metal activations & intermediate buffers
+        del gen_result
+        reclaim_metal_memory()
 
         saved_file: Optional[Path] = None
         if output_path:
@@ -501,6 +511,14 @@ class MLXImageEngine:
             saved_path=saved_file,
             revised_prompt=revised_prompt or prompt,
         )
+
+    def generate_image(self, *args, **kwargs) -> ImageResult:
+        """Backwards compatibility alias forwarding to generate()."""
+        if "width" in kwargs and "height" in kwargs and "size" not in kwargs:
+            w = kwargs.pop("width")
+            h = kwargs.pop("height")
+            kwargs["size"] = f"{w}x{h}"
+        return self.generate(*args, **kwargs)
 
     def _generate_via_qwen21_pipeline(
         self,
@@ -551,13 +569,17 @@ class MLXImageEngine:
             )
 
         elapsed = time.perf_counter() - start_time
-        peak_mem = get_active_memory_gb()
+        peak_mem = (mx.get_peak_memory() / 1e9) if hasattr(mx, "get_peak_memory") else get_active_memory_gb()
 
         pil_img = generated.image
         buf = BytesIO()
         pil_img.save(buf, format="PNG")
         png_bytes = buf.getvalue()
         b64_json = base64.b64encode(png_bytes).decode("ascii")
+
+        # Immediately reclaim transient Metal activations & intermediate buffers
+        del generated
+        reclaim_metal_memory()
 
         saved_file: Optional[Path] = None
         if output_path:
@@ -600,8 +622,12 @@ class MLXImageEngine:
         seed: Optional[int] = None,
         output_path: Optional[Union[str, Path]] = None,
         revised_prompt: Optional[str] = None,
+        auto_mask: Optional[str] = None,
+        mask_image: Optional[Union[str, Path]] = None,
+        strength: float = 1.0,
+        enhance_prompt: bool = False,
     ) -> ImageResult:
-        """Executes instruction-based image editing via mflux QwenImage21Edit."""
+        """Executes instruction-based image editing via mflux QwenImage21Edit with true semantic inpainting support."""
         if self.qwen21_edit_model is None:
             self._load_qwen21_model()
 
@@ -625,34 +651,70 @@ class MLXImageEngine:
         # QwenImage21Edit requires negative_prompt if guidance > 1.0; default to CFG=1.0
         effective_guidance = 1.0
 
+        resolved_mask = _resolve_input_image_path(mask_image) if mask_image else None
+        effective_strength = max(0.01, min(1.0, float(strength))) if strength is not None else 1.0
+
         logger.info(
             f"Editing Qwen-Image-2.1 image: '{prompt[:60]}...' "
-            f"({width}x{height}, {effective_steps} steps, scheduler={scheduler}, seed={effective_seed}, ref={resolved_paths[0].name})"
+            f"({width}x{height}, {effective_steps} steps, scheduler={scheduler}, seed={effective_seed}, "
+            f"ref={resolved_paths[0].name}, auto_mask={auto_mask}, strength={effective_strength})"
         )
         mx.reset_peak_memory()
         start_time = time.perf_counter()
 
         with mx.stream(mx.default_stream(mx.default_device())):
-            generated = self.qwen21_edit_model.generate_image(
-                seed=effective_seed,
-                prompt=prompt,
-                num_inference_steps=effective_steps,
-                height=height,
-                width=width,
-                guidance=effective_guidance,
-                image_paths=list(resolved_paths),
-                use_kv_cache=True,
-                scheduler=scheduler,
-            )
+            try:
+                generated = self.qwen21_edit_model.generate_image(
+                    seed=effective_seed,
+                    prompt=prompt,
+                    num_inference_steps=effective_steps,
+                    height=height,
+                    width=width,
+                    guidance=effective_guidance,
+                    image_paths=list(resolved_paths),
+                    use_kv_cache=True,
+                    scheduler=scheduler,
+                    mask_image=resolved_mask,
+                    auto_mask=auto_mask,
+                    strength=effective_strength,
+                    enhance_prompt=enhance_prompt,
+                )
+            except ValueError as ve:
+                if auto_mask and "auto_mask could not locate" in str(ve):
+                    logger.warning(
+                        f"auto_mask target '{auto_mask}' could not be located by Qwen-VL; "
+                        "falling back to full canvas instruction edit."
+                    )
+                    generated = self.qwen21_edit_model.generate_image(
+                        seed=effective_seed,
+                        prompt=prompt,
+                        num_inference_steps=effective_steps,
+                        height=height,
+                        width=width,
+                        guidance=effective_guidance,
+                        image_paths=list(resolved_paths),
+                        use_kv_cache=True,
+                        scheduler=scheduler,
+                        mask_image=resolved_mask,
+                        auto_mask=None,
+                        strength=effective_strength,
+                        enhance_prompt=enhance_prompt,
+                    )
+                else:
+                    raise
 
         elapsed = time.perf_counter() - start_time
-        peak_mem = get_active_memory_gb()
+        peak_mem = (mx.get_peak_memory() / 1e9) if hasattr(mx, "get_peak_memory") else get_active_memory_gb()
 
         pil_img = generated.image
         buf = BytesIO()
         pil_img.save(buf, format="PNG")
         png_bytes = buf.getvalue()
         b64_json = base64.b64encode(png_bytes).decode("ascii")
+
+        # Immediately reclaim transient Metal activations & intermediate buffers
+        del generated
+        reclaim_metal_memory()
 
         saved_file: Optional[Path] = None
         if output_path:
@@ -695,6 +757,10 @@ class MLXImageEngine:
         seed: Optional[int] = None,
         output_path: Optional[Union[str, Path]] = None,
         revised_prompt: Optional[str] = None,
+        auto_mask: Optional[str] = None,
+        mask: Optional[Union[str, Path]] = None,
+        strength: float = 1.0,
+        enhance_prompt: bool = False,
     ) -> ImageResult:
         """
         Modifies or edits existing reference image(s) according to a natural language prompt.
@@ -708,6 +774,10 @@ class MLXImageEngine:
             seed: Deterministic seed.
             output_path: Optional output file path.
             revised_prompt: Optional LLM-distilled edit prompt.
+            auto_mask: Optional object or region description for automatic Qwen-VL semantic grounding.
+            mask: Optional image mask path/URL (white = repaint, black = preserve).
+            strength: Denoising strength in (0, 1].
+            enhance_prompt: Whether to enhance/rewrite the prompt with Qwen-VL.
         """
         if not self.is_loaded:
             self._load_model()
@@ -734,6 +804,10 @@ class MLXImageEngine:
                 seed=seed,
                 output_path=output_path,
                 revised_prompt=revised_prompt,
+                auto_mask=auto_mask,
+                mask_image=mask,
+                strength=strength,
+                enhance_prompt=enhance_prompt,
             )
 
         from mlx_vlm.generate.edit_image import ImageEditRequest, edit_image
@@ -784,11 +858,15 @@ class MLXImageEngine:
             mx.eval(gen_result.array)
 
         elapsed = time.perf_counter() - start_time
-        peak_mem = get_active_memory_gb()
+        peak_mem = (mx.get_peak_memory() / 1e9) if hasattr(mx, "get_peak_memory") else get_active_memory_gb()
 
         pil_img = gen_result.to_pil()
         png_bytes = gen_result.to_png_bytes()
         b64_json = base64.b64encode(png_bytes).decode("ascii")
+
+        # Immediately reclaim transient Metal activations & intermediate buffers
+        del gen_result
+        reclaim_metal_memory()
 
         saved_file: Optional[Path] = None
         if output_path:
